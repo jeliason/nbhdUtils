@@ -1,0 +1,224 @@
+---
+title: "EDA with spatstat (for Rashid et al 2019)"
+author: "Joel Eliason"
+date: "9/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(mbkmeans)
+library(bluster)
+library(spatstat)
+```
+
+```{r}
+df = read_csv('data/LUNG-1-LN_40X_master.csv')
+mat = df[,4:47]%>%
+  as.matrix
+
+mat[mat == -Inf] <- 0
+res <- prcomp(mat, center = TRUE, scale = TRUE)
+plot(cumsum(res$sdev^2/sum(res$sdev^2)))
+
+red.mat = predict(res)[, cumsum(res$sdev^2/sum(res$sdev^2)) < 0.9]
+
+out = clusterRows(red.mat, MbkmeansParam(10))
+out
+
+df$cell_type = out
+
+
+Xmin = min(df$X_position) - 1
+# Xmax = max(df$X_position) + 1
+Xmax = 2000
+# Ymin = min(df$Y_position) - 1
+Ymin = 8000
+Ymax = max(df$Y_position) + 1
+
+filt = df %>%
+  filter(X_position < Xmax) %>%
+  filter(Y_position > Ymin)
+
+pat = ppp(filt$X_position,filt$Y_position,c(Xmin,Xmax),c(Ymin,Ymax))
+
+marks(pat) <- filt$cell_type
+
+plot(pat)
+
+```
+
+There may be somewhat of a limit of points for `spatstat` - going to zoom in on a region for now.
+
+```{r}
+summary(pat)
+```
+#### Questions to ask with spatial statistics
+
+1. Proximity of one cell phenotype to another correlated with prognosis?
+2. 
+### EDA
+
+1. Intensity and density per cell type
+2. Homogeneous distribution of cells
+  2a. Counts per quadrant - dependent on quadrant size
+  2a. Kernel smoothing - nonparametric
+3. Spatial descriptive functions
+  3a. Describe measured distances between cell populations
+    * G-function
+    * F-function
+    * J-function
+  3b. Describe relative intensity of cells in terms of distance measured
+    * K-function
+    * L-function
+    * pair correlation function
+4. Construction of distance matrices
+  * Between any two cell phenotypes
+5. Nearest neighbor
+  * Probability of encountering a cell phenotype within a certain radius, centered
+  on another cell phenotype
+  * Compare theoretical curve with empirical nearest neighbor cross-G-function
+  
+  
+#### Intensity and density
+
+```{r}
+plot(quadratcount(split(pat)))
+plot(quadratcount(pat))
+```
+Why are groups 8 and 10 restricted to the top and left edge, respectively?
+
+```{r}
+plot(density(pat))
+plot(density(split(pat)))
+```
+
+Morisita index:
+
+close to 1 if points are independent
+greater than 1 if clustered
+less than 1 if regular
+
+```{r}
+miplot(pat)
+sapply(split(pat), miplot)
+```
+
+```{r}
+fryplot(pat)
+```
+
+K-function
+ standardized (to account for density and/or total number of points) average number of r-neighbors of a typical data point, adter taking care of edge effects
+ 
+"the cumulative average number of data points lying within a distance r of a typical data point, corrected for edge effects, and standardised by
+dividing by the intensity. The standardisation and edge correction make it possible to compare point patterns with different numbers of points, observed in different windows."
+
+use of the K-function also implicitly assumes that the point process has homogeneous intensity
+
+L-function standardizes theoretical Poisson K-function to straight line, making visual assessment much easier.
+
+Kest, Lest
+
+```{r}
+lest = Lest(pat, correction = "good")
+plot(lest)
+
+```
+
+K-function can be difficult to interpret correctly in terms of behavior of point process, since it is cumulative.
+
+Can also use pair correlation function, only with contributions from interpoint distances equal to r.
+
+```{r}
+g <- pcf(pat)
+plot(g)
+
+g <- pcf(pat, divisor="d")
+plot(g)
+
+g <- pcfinhom(pat)
+plot(g)
+```
+
+Can also look at K function between types of points:
+
+```{r}
+kcross = Kcross.inhom(pat, 6, 2)
+
+plot(kcross)
+
+g = pcf(kcross)
+
+plot(g)
+```
+
+Global vs pointwise envelopes
+
+```{r}
+E <- envelope(pat, Kest, nsim = 9, fix.n = TRUE, global = TRUE )
+plot(E)
+```
+
+Testing envelope departure without graphing:
+
+```{r}
+test = mad.test(pat, Lest, nsim=99, rmax=2, use.theo=TRUE)
+```
+
+```{r}
+dclf.test(pat, Lest, nsim=99, rmax=2, use.theo=TRUE)$p.value
+```
+
+Measuring anisotropy
+
+
+
+
+### Models for multitype patterns
+
+#### Strategy for analysis
+
+*joint distribution*
+regard locations and types as having been generated at the same time
+most general model is homogeneous Poisson multitype point process (for CSR and independence - CSRI)
+
+*marginal and conditional distributions*
+pp for X, together with a discrete random field for M given X
+
+CSRI is:
+ppm(pat ~ marks)
+
+```{r}
+m1 <- ppm(pat ~ marks)
+summary(m1)
+```
+
+```{r}
+m1 = ppm(pat ~ marks)
+m2 = ppm(pat ~ marks + x)
+m3 = ppm(pat ~ marks + y)
+m4 = ppm(pat ~ marks + x + y)
+
+anova(m1,m2,test="LR")
+anova(m1,m3,test="LR")
+anova(m3,m4,test="LR")
+
+m5 = ppm(pat ~ marks*x)
+
+anova(m2,m5,test = "LR")
+```
+
+```{r}
+tab = marktable(pat, N=1, collapse = TRUE)
+
+prop.table(tab, 1)
+```
+
+```{r}
+library(dixon)
+
+dixon(as.data.frame(pat))$tablaC
+```
+

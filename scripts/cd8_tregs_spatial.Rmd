@@ -1,0 +1,19 @@
+---
+title: "Spatial relationships between CD8+ T cells and Tregs"
+author: "Joel Eliason"
+date: "12/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Questions/Analyses
+
+  1. Are there differences in the spatial relationships of CD8+ T cells and Tregs between patient groups? Patient stage?
+  2. Is there any significant interaction of immune cells and vasculature in either patient group?
+  3. At what spatial scale do we observe spatial relationships of CD8+ T cells and Tregs?
+  
+  
+  

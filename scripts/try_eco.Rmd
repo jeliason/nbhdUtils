@@ -1,0 +1,98 @@
+---
+title: "Try ecology packages"
+author: "Joel Eliason"
+date: "9/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(factoextra)
+library(mbkmeans)
+```
+
+```{r}
+df = read.csv('../NeighborhoodCoordination/Neighborhoods/markers_only.csv')
+
+mat = df[,4:dim(df)[2]]
+
+res <- prcomp(mat, center = TRUE, scale = TRUE)
+plot(cumsum(res$sdev^2/sum(res$sdev^2)))
+
+red.mat = predict(res)[, cumsum(res$sdev^2/sum(res$sdev^2)) < 0.9]
+# trunc <- res$x[,1:pc.use] %*% t(res$rotation[,1:pc.use])
+# 
+# #and add the center (and re-scale) back to data
+# if(res$scale != FALSE){
+# 	trunc <- scale(trunc, center = FALSE , scale=1/res$scale)
+# }
+# if(res$center != FALSE){
+#     trunc <- scale(trunc, center = -1 * res$center, scale=FALSE)
+# }
+# dim(trunc); dim(mat)
+
+library(bluster)
+
+
+# Use map_dbl to run many models with varying value of k (centers)
+
+ks <- seq(5, 30)
+res <- lapply(ks, function(k) {
+    mbkmeans(as.matrix(mat), clusters = k,
+             calc_wcss = TRUE, num_init=10)
+})
+
+wcss <- sapply(res, function(x) sum(x$WCSS_per_cluster))
+plot(ks, wcss, type = "b")
+
+out = clusterRows(mat, MbkmeansParam(20))
+out
+
+df$cell_type = out
+
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(magrittr)
+library(microeco)
+
+grouped = df %>%
+  group_by(cell_type,patients) %>%
+  summarise(count = n()) %>%
+  mutate(count = as.numeric(count)) %>%
+  pivot_wider(names_from = patients, values_from = count) %>%
+  replace(is.na(.), 0) %>%
+  as.data.frame
+
+grouped2 = grouped[,-1]
+rownames(grouped2) = grouped[,1]
+
+```
+
+```{r}
+dataset = microtable$new(otu_table = grouped2)
+dataset$cal_alphadiv()
+dataset$alpha_diversity
+dataset$cal_betadiv()
+dataset$beta_diversity
+```
+
+```{r}
+dataset$cal_abund()
+t1 <- trans_alpha$new(dataset = dataset, group = "Group")
+
+t1$alpha_stat
+```
+
+```{r}
+grouped2
+library(corrplot)
+cor.mat = cor(t(grouped2))
+corrplot(cor.mat)
+```
+
