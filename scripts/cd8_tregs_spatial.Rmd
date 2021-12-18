@@ -7,6 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(spatstat)
+library(glue)
 ```
 
 ### Questions/Analyses
@@ -16,4 +19,109 @@ knitr::opts_chunk$set(echo = TRUE)
   3. At what spatial scale do we observe spatial relationships of CD8+ T cells and Tregs?
   
   
+#### Data IO/preprocessing
+
+```{r}
+DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+df = read_csv(glue('{DATA_PATH}CRC_master.csv'))
+```
+
+```{r}
+df %>%
+  group_by(spots,ClusterName) %>%
+  filter(ClusterName == 'Tregs' | ClusterName == 'CD8+ T cells') %>%
+  summarise(n())
   
+```
+From this we will choose spot 15_B (almost equal ratio of Tregs and CD8+ T cells) and 20_A (more than twice as many CD8+ T cells than Tregs).
+
+```{r}
+spot_eq = df %>%
+  filter(spots == '15_B')
+
+spot_un = df %>%
+  filter(spots == '20_A')
+```
+
+We can then create the spatial point processes for both spots as well:
+
+```{r}
+create_ppp = function(df,cell_types=c('Tregs','CD8+ T cells')) {
+  Xmin = min(df$X) - 5
+  Xmax = max(df$X) + 5
+  Ymin = min(df$Y) - 5
+  Ymax = max(df$Y) + 5
+  
+  filt = df %>%
+    filter(ClusterName %in% cell_types) %>%
+    mutate(ClusterName = factor(ClusterName))
+  
+  pat = ppp(filt$X,filt$Y,c(Xmin,Xmax),c(Ymin,Ymax))
+  
+  marks(pat) <- filt$ClusterName
+  
+  return(pat)
+}
+
+pat_eq = create_ppp(spot_eq)
+pat_un = create_ppp(spot_un)
+
+pat_un
+```
+
+
+### Initial visualizations
+
+```{r}
+plot(pat_eq)
+plot(pat_un)
+```
+Quadrant counts
+
+```{r}
+plot(quadratcount(split(pat_eq)))
+plot(quadratcount(split(pat_un)))
+
+```
+
+```{r}
+plot(density(split(pat_eq)))
+plot(density(split(pat_un)))
+```
+
+```{r}
+miplot(pat_eq)
+sapply(split(pat_eq), miplot)
+```
+Greater than 1 indicates clustering - so we are seeing clustering at all spatial scales in the equal pattern.
+
+```{r}
+miplot(pat_un)
+sapply(split(pat_un), miplot)
+```
+
+Looks like there is still clustering at all scales, but to a lesser degree, in the unequal pattern (lower Morisita index).
+
+```{r}
+lest_eq = Lest(pat_eq, correction = "good")
+plot(lest_eq)
+
+```
+
+
+```{r}
+lest_un = Lest(pat_un, correction = "good")
+plot(lest_un)
+
+```
+
+
+```{r}
+kcross = Kcross.inhom(pat_un, 'CD8+ T cells', 'Tregs')
+
+plot(kcross)
+
+g = pcf(kcross)
+
+plot(g)
+```

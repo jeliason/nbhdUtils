@@ -14,8 +14,8 @@ library(spatstat)
 ```
 
 ```{r}
-df = read_csv('data/LUNG-1-LN_40X_master.csv')
-mat = df[,4:47]%>%
+df_rashid = read_csv('../data/spatial_multiplex_rashid_2019/data/LUNG-1-LN_40X_master.csv')
+mat = df_rashid[,4:47]%>%
   as.matrix
 
 mat[mat == -Inf] <- 0
@@ -27,17 +27,17 @@ red.mat = predict(res)[, cumsum(res$sdev^2/sum(res$sdev^2)) < 0.9]
 out = clusterRows(red.mat, MbkmeansParam(10))
 out
 
-df$cell_type = out
+df_rashid$cell_type = out
 
 
-Xmin = min(df$X_position) - 1
+Xmin = min(df_rashid$X_position) - 1
 # Xmax = max(df$X_position) + 1
 Xmax = 2000
 # Ymin = min(df$Y_position) - 1
 Ymin = 8000
-Ymax = max(df$Y_position) + 1
+Ymax = max(df_rashid$Y_position) + 1
 
-filt = df %>%
+filt = df_rashid %>%
   filter(X_position < Xmax) %>%
   filter(Y_position > Ymin)
 
