@@ -9,6 +9,7 @@ output: html_notebook
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(spatgraphs)
+library(spatialOnco)
 ```
 
 
@@ -24,7 +25,17 @@ pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx
 ```{r}
 spot_eq = df %>%
   filter(spots == '15_B')
-
+pat_eq = create_ppp(spot_eq$X,spot_eq$Y,spot_eq$ClusterName,
+                    keep_types =c('Tregs','CD8+ T cells','vasculature','tumor cells'))
 spot_un = df %>%
   filter(spots == '20_A')
+pat_un = create_ppp(spot_un$X,spot_un$Y,spot_un$ClusterName,
+                    keep_types =c('Tregs','CD8+ T cells','vasculature','tumor cells'))
 ```
+
+```{r}
+sg_eq = spatgraph(pat_eq,type="gabriel")
+plot(sg_eq,pat_eq)
+```
+
+
