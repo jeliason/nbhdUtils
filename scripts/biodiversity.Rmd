@@ -1,0 +1,30 @@
+---
+title: "Biodiversity indices"
+author: "Joel Eliason"
+date: "12/28/2021"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(spatgraphs)
+```
+
+
+#### Data IO/preprocessing
+
+```{r}
+DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+df = read_csv(paste0(DATA_PATH,'CRC_master.csv'))
+pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx'))
+
+```
+
+```{r}
+spot_eq = df %>%
+  filter(spots == '15_B')
+
+spot_un = df %>%
+  filter(spots == '20_A')
+```

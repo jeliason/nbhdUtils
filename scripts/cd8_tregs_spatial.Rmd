@@ -24,6 +24,8 @@ library(glue)
 ```{r}
 DATA_PATH = '../data/nbhd_coord_schurch_2020/'
 df = read_csv(glue('{DATA_PATH}CRC_master.csv'))
+pt_data = readxl::read_excel(glue('{DATA_PATH}CRC_TMAs_patient_annotations.xlsx'))
+
 ```
 
 ```{r}
@@ -33,7 +35,7 @@ df %>%
   summarise(n())
   
 ```
-From this we will choose spot 15_B (almost equal ratio of Tregs and CD8+ T cells) and 20_A (more than twice as many CD8+ T cells than Tregs).
+From this we will choose spot 15_B (almost equal ratio of Tregs and CD8+ T cells) and 20_A (more than twice as many CD8+ T cells than Tregs). Spot 15B corresponds to patient 8, who is in group 2 (DII), while 20A corresponds to patient 10, who is in group 1 (CLR).
 
 ```{r}
 spot_eq = df %>%
@@ -85,6 +87,10 @@ plot(quadratcount(split(pat_un)))
 ```
 
 ```{r}
+quadrat.test(pat_eq,3,3)
+```
+
+```{r}
 plot(density(split(pat_eq)))
 plot(density(split(pat_un)))
 ```
@@ -117,11 +123,42 @@ plot(lest_un)
 
 
 ```{r}
-kcross = Kcross.inhom(pat_un, 'CD8+ T cells', 'Tregs')
+kcross_un = Kcross.inhom(pat_un, 'CD8+ T cells', 'Tregs')
+kcross_eq = Kcross.inhom(pat_eq, 'CD8+ T cells', 'Tregs')
 
-plot(kcross)
-
-g = pcf(kcross)
-
-plot(g)
+plot(kcross_un)
+plot(kcross_eq)
 ```
+
+```{r}
+plot(pcf(kcross_un))
+plot(pcf(kcross_eq))
+```
+
+```{r}
+tab_un = marktable(pat_un, N=1, collapse = TRUE)
+
+prop.table(tab_un, 1)
+
+tab_eq = marktable(pat_eq, N=1, collapse = TRUE)
+
+prop.table(tab_eq, 1)
+```
+
+```{r}
+E_un <- envelope(pat_un, function(X,...) {pcf(Kcross.inhom(X,...))}, nsim = 9, nrank = 1, fix.n = TRUE, global = TRUE,'CD8+ T cells', 'Tregs')
+plot(E_un)
+```
+
+### Model fitting
+
+```{r}
+m_eq = ppm(pat_eq ~ marks, MultiHard())
+
+plot(fitin(m_eq))
+
+fitin(m_eq)
+
+plot(alltypes(pat_eq, Kcross))
+```
+
