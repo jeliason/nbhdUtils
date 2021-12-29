@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(spatgraphs)
 library(spatialOnco)
+library(spatialsegregation)
 ```
 
 
@@ -38,4 +39,47 @@ sg_eq = spatgraph(pat_eq,type="gabriel")
 plot(sg_eq,pat_eq)
 ```
 
+```{r}
+sg_un = spatgraph(pat_un,type="gabriel")
+plot(sg_un,pat_un)
+```
 
+* spatial Simpson index - "if we randomly pick one point of
+the pattern as a focal point, and another point from the focal point’s neighbourhood,
+the index describes the probability that the two are from different species."
+
+```{r}
+ntype = "delaunay"
+res_eq = simpsonF(pat_eq,ntype=ntype,minusRange=F)
+
+res_eq$S
+
+res_un = simpsonF(pat_un,ntype=ntype,minusRange=F)
+
+res_un$S
+```
+
+* individual species area relationship (ISAR) - This measures the number of species in the average neighbourhood of an individual of species $\tau$.
+
+```{r}
+res_eq = isarF(pat_eq,ntype=ntype,minusRange=F)
+
+summary(res_eq)
+
+res_un = isarF(pat_un,ntype=ntype,minusRange=F)
+
+summary(res_un)
+```
+
+mingling index - defined as the fraction of neighbours of a different species among the neighbours of a point of species $\tau$
+
+```{r}
+res_eq = minglingF(pat_eq,ntype=ntype,minusRange=F)
+
+summary(res_eq)
+
+res_un = minglingF(pat_un,ntype=ntype,minusRange=F)
+
+summary(res_un)
+```
+We can note that the mingling index for vasculature and tumor cells is lower in the unequal pattern than the equal pattern. This directional effect is not seen in the ISAR.
