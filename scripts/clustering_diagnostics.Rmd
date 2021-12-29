@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Clustering algorithms for neighborhoods
+
+```{r}
+library(bluster)
+library(pheatmap)
+library(viridis)
+```
+
+
+hclust,kmeans,hdbscan,SOM,graph-based,affinity propagation using bluster
+
+* Need to update bluster
+
+```{r}
+mat = nbhds.obj$scaled_nbhds
+hclust.out <- clusterRows(mat, HclustParam())
+hclust.out
+
+```
+
+```{r}
+clust.info <- clusterRows(mat, NNGraphParam(k=10),full = T)
+
+clusters <- clust.info$clusters
+table(clusters)
+```
+
+
+```{r}
+sil <- approxSilhouette(mat, clusters)
+sil
+boxplot(split(sil$width, clusters))
+
+```
+
+```{r}
+best.choice <- ifelse(sil$width > 0, clusters, sil$other)
+table(Assigned=clusters, Closest=best.choice)
+```
+
+```{r}
+pure <- neighborPurity(mat, clusters)
+
+boxplot(split(pure$purity, clusters))
+
+```
+
+```{r}
+table(Assigned=clusters, Max=pure$maximum)
+```
+
+```{r}
+rmsd <- clusterRMSD(mat, clusters)
+barplot(rmsd)
+```
+
+```{r}
+g <- clust.info$objects$graph
+ratio <- pairwiseModularity(g, clusters, as.ratio=TRUE)
+
+library(pheatmap)
+pheatmap(log10(ratio+1), cluster_cols=FALSE, cluster_rows=FALSE,
+    col=rev(heat.colors(100)))
+```
+
+```{r}
+cluster.gr <- igraph::graph_from_adjacency_matrix(log2(ratio+1), 
+    mode="upper", weighted=TRUE, diag=FALSE)
+
+# Increasing the weight to increase the visibility of the lines.
+set.seed(1100101)
+plot(cluster.gr, edge.width=igraph::E(cluster.gr)$weight*5,
+    layout=igraph::layout_with_lgl)
+```
+
+```{r}
+merged <- mergeCommunities(g, clusters, number=5)
+table(merged)
+```
+```{r}
+sil <- approxSilhouette(mat, merged)
+best.choice <- ifelse(sil$width > 0, clusters, sil$other)
+table(Assigned=clusters, Closest=best.choice)
+```
+
+```{r}
+hclusters <- clusterRows(mat, HclustParam(cut.dynamic=TRUE))
+pairwiseRand(clusters, hclusters, mode="index")
+```
+
+```{r}
+ratio <- pairwiseRand(clusters, hclusters, mode="ratio")
+
+pheatmap(ratio, cluster_cols=FALSE, cluster_rows=FALSE,
+    col=viridis::viridis(100), breaks=seq(-1, 1, length=101))
+```
+
+```{r}
+set.seed(1001010)
+ari <-bootstrapStability(mat, clusters=clusters, 
+    mode="index", BLUSPARAM=NNGraphParam())
+ari
+```
+
+```{r}
+combinations <- clusterSweep(mat, BLUSPARAM=SNNGraphParam(),
+    k=c(5L, 10L, 15L, 20L), cluster.fun=c("walktrap", "louvain", "infomap"))
+```
+
+```{r}
+set.seed(10)
+nclusters <- 3:25
+kcombos <- clusterSweep(mat, BLUSPARAM=KmeansParam(centers=5), centers=nclusters)
+
+sil <- vapply(as.list(kcombos$clusters), function(x) mean(approxSilhouette(mat, x)$width), 0)
+plot(nclusters, sil, xlab="Number of clusters", ylab="Average silhouette width")
+```
+
+```{r}
+pur <- vapply(as.list(kcombos$clusters), function(x) mean(neighborPurity(mat, x)$purity), 0)
+plot(nclusters, pur, xlab="Number of clusters", ylab="Average purity")
+```
+
+```{r}
+wcss <- vapply(as.list(kcombos$clusters), function(x) sum(clusterRMSD(mat, x, sum=TRUE)), 0)
+plot(nclusters, wcss, xlab="Number of clusters", ylab="Within-cluster sum of squares")
+```
+
+```{r}
+linked <- linkClusters(
+    list(
+        walktrap=combinations$clusters$k.10_cluster.fun.walktrap,
+        louvain=combinations$clusters$k.10_cluster.fun.louvain,
+        infomap=combinations$clusters$k.10_cluster.fun.infomap
+    )
+)
+linked
+```
+
+```{r}
+meta <- igraph::cluster_walktrap(linked)
+plot(linked, mark.groups=meta)
+```
+
+```{r}
+aris <- compareClusterings(combinations$clusters)
+g <- igraph::graph.adjacency(aris, mode="undirected", weighted=TRUE)
+meta2 <- igraph::cluster_walktrap(g)
+plot(g, mark.groups=meta2)
+```
+

@@ -10,5 +10,6 @@ Roxygen: list(markdown = TRUE)
 Imports:
     dplyr,
     magrittr,
+    spatgraphs,
     spatstat.geom
 RoxygenNote: 7.1.2

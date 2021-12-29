@@ -2,4 +2,6 @@
 
 export("%>%")
 export(create_ppp)
+export(scale_nbhds)
+export(sg_to_nbhds)
 importFrom(magrittr,"%>%")

@@ -8,6 +8,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(spatgraphs)
 library(spatialOnco)
+library(bluster)
+library(pheatmap)
 ```
 
 #### Data IO/preprocessing
@@ -32,6 +34,7 @@ CytoMAP functionality to replicate:
 2. Neighborhood definition (raster-scan vs graph based)
 3. Neighborhood clustering (many ways of calculating neighborhood similarities)
   * Straight forward clusterings first...
+  * diagnostics on clusterings
   * Then things like graph embeddings
 4. cell type correlations
 5. distance to border or other landmark (may pass on this as well)
@@ -47,72 +50,44 @@ Ideally, we'd like to input a neighborhood type (w/ parameters) and point patter
 sg_eq = spatgraph(pat_eq,type="SIG")
 plot(sg_eq,pat_eq)
 
-edgeLengths(sq_eq,pat_eq)
-
-sg_to_nbhds = function(sg,pat) {
-  edges = sg$edges
-  marks = pat$marks
-  cmarks = as.character(marks)
-  nnodes = length(edges)
-  nbhds = sapply(1:nnodes,function(i) {
-    x = c(cmarks[i],cmarks[edges[[i]]])
-    x = factor(x,levels=levels(marks))
-    as.vector(table(x))
-  })
-  list(nbhds=t(nbhds),types=levels(marks))
-}
-
-nbhds.obj = sg_to_nbhds(sg_eq,pat_eq)
-nbhds.obj
+nbhds = sg_to_nbhds(sg_eq,pat_eq)
+nbhds
 
 ```
 
 Scaling neighborhood composition:
 
-1. comp (default) - divide by total number of cells
-2. global
+1. comp (default) - divide by total number of cells, yields local composition of cell types
+2. global.comp - divide by maximum number of cells across all neighborhoods per cell type, normalizes
+each cell type to its own maximum
+3. binary - 1 if cell type is present, 0 otherwise
+4. standardize - normalizes so that cell types have mean 0 and standard deviation of 1
 
 ```{r}
-
-nbhd_composition = function(nbhds.obj,scale="comp") {
-  nbhds = nbhds.obj$nbhds
-  if(scale == "comp") {
-    sums = rowSums(nbhds)
-    nbhds.obj$scaled_nbhds = sweep(nbhds,1,STATS=sums,FUN="/")
-  } else if(scale == "global.comp") {
-    nbhds.obj$scaled_nbhds = sweep(nbhds,2,STATS=apply(nbhds,2,max),FUN="/")
-  } else if(scale == "binary") {
-    nbhds.obj$scaled_nbhds = (nbhds > 0) + 0
-  } else if(scale == "standardize") {
-    nbhds.obj$scaled_nbhds = scale(nbhds,T,T)
-  } else {
-    stop("Not a recognized scaling!")
-  }
-    nbhds.obj$scaling = scale
-  return(nbhds.obj)
-}
-
-nbhds.obj = nbhd_composition(nbhds.obj)
-```
-
-
-### Clustering algorithms for neighborhoods
-
-hclust,kmeans,hdbscan,SOM,graph-based,affinity propagation using bluster
-
-
-```{r}
-library(bluster)
-mat = nbhds.obj$scaled_nbhds
-hclust.out <- clusterRows(mat, HclustParam())
-hclust.out
-
+nbhds.obj = scale_nbhds(nbhds,scale = "standardize")
 ```
 
 ```{r}
-graph.out <- clusterRows(mat, NNGraphParam(k=10))
-graph.out
+celltype_heatmap(nbhds.obj)
 ```
 
+```{r}
+nbhds.obj = scale_nbhds(nbhds,scale = "standardize")
+centroids = cluster_nbhds(nbhds.obj,scaled=T)
+nbhd_celltype_heatmap(centroids)
+```
 
+```{r}
+nbhds.obj = scale_nbhds(nbhds,scale = "comp")
+centroids = cluster_nbhds(nbhds.obj,scaled=T)
+nbhd_celltype_heatmap(centroids)
+```
 
+```{r}
+nbhds.obj = scale_nbhds(nbhds,scale = "global.comp")
+centroids = cluster_nbhds(nbhds.obj,scaled=T)
+nbhd_celltype_heatmap(centroids)
+```
+
+Global.comp and standardize are very similar - makes sense, since they both standardize globally (using the max).
+comp is different, since it is taking into account only the local composition.
