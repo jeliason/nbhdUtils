@@ -10,7 +10,14 @@ scale_nbhds(nbhds, scale = "comp")
 \item{nbhds}{neighborhoods matrix from sg_to_nbhds}
 
 \item{scale}{string indicating type of scaling, can be any of
-"comp","global.comp","binary", or "standardize"}
+"comp","global.comp","binary", or "standardize"
+\enumerate{
+\item comp (default) - divide by total number of cells, yields local composition of cell types
+\item global.comp - divide by maximum number of cells across all neighborhoods per cell type, normalizes
+each cell type to its own maximum
+\item binary - 1 if cell type is present, 0 otherwise
+\item standardize - normalizes so that cell types have mean 0 and standard deviation of 1
+}}
 }
 \value{
 list with original nbhds, scaled nbhds and type of scaling

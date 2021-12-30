@@ -3,12 +3,12 @@
 #' @param X X coordinates of cells
 #' @param Y Y coordinates of cells
 #' @param cell_types vector of strings of cell type
-#' @param keep_types string vector of types to retain in ppp, or TRUE if should keep all types
+#' @param keep_types string vector of types to retain in ppp, or "all" if should keep all types
 #'
 #' @return spatstat ppp object 
 #' @export
-create_ppp = function(X,Y,cell_types,keep_types=TRUE) {
-  if(keep_types == TRUE) {
+create_ppp = function(X,Y,cell_types,keep_types="all") {
+  if("all" %in% keep_types) {
     keep_types = unique(cell_types)
   } else if(!is.vector(keep_types)) {
     stop("keep_types must be a vector of strings of cell types to keep!")

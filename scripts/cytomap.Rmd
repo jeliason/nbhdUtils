@@ -16,6 +16,7 @@ library(pheatmap)
 
 ```{r}
 DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+RESULTS_PATH = '../results/'
 df = read_csv(paste0(DATA_PATH,'CRC_master.csv'))
 pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx'))
 
@@ -24,8 +25,10 @@ pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx
 ```{r}
 spot_eq = df %>%
   filter(spots == '15_B')
-pat_eq = create_ppp(spot_eq$X,spot_eq$Y,spot_eq$ClusterName,
-                    keep_types =c('Tregs','CD8+ T cells','vasculature','tumor cells'))
+keep_types = unique(spot_eq$ClusterName)
+keep_types = keep_types[keep_types != "granulocytes"]
+pat = create_ppp(spot_eq$X,spot_eq$Y,spot_eq$ClusterName,
+                    keep_types = keep_types)
 ```
 
 CytoMAP functionality to replicate:
@@ -46,11 +49,12 @@ CytoMAP functionality to replicate:
 
 Ideally, we'd like to input a neighborhood type (w/ parameters) and point pattern, and get a list of neighborhoods out.
 
+Furthermore, we should be able to specify a range of graph types, BLUSPARAMS and neighborhood scalings, and be able to see their 
 ```{r}
-sg_eq = spatgraph(pat_eq,type="SIG")
-plot(sg_eq,pat_eq)
+sg = spatgraph(pat,type="SIG",par=NULL)
+plot(sg,pat)
 
-nbhds = sg_to_nbhds(sg_eq,pat_eq)
+nbhds = sg_to_nbhds(sg,pat)
 nbhds
 
 ```
@@ -73,21 +77,157 @@ celltype_heatmap(nbhds.obj)
 
 ```{r}
 nbhds.obj = scale_nbhds(nbhds,scale = "standardize")
-centroids = cluster_nbhds(nbhds.obj,scaled=T)
+clust.out = cluster_nbhds(nbhds.obj=nbhds.obj)
+centroids = clust.out$centroids
 nbhd_celltype_heatmap(centroids)
 ```
 
 ```{r}
 nbhds.obj = scale_nbhds(nbhds,scale = "comp")
-centroids = cluster_nbhds(nbhds.obj,scaled=T)
+clust.out = cluster_nbhds(nbhds.obj=nbhds.obj)
+centroids = clust.out$centroids
 nbhd_celltype_heatmap(centroids)
 ```
 
 ```{r}
 nbhds.obj = scale_nbhds(nbhds,scale = "global.comp")
-centroids = cluster_nbhds(nbhds.obj,scaled=T)
+clust.out = cluster_nbhds(nbhds.obj=nbhds.obj)
+centroids = clust.out$centroids
 nbhd_celltype_heatmap(centroids)
 ```
 
 Global.comp and standardize are very similar - makes sense, since they both standardize globally (using the max).
 comp is different, since it is taking into account only the local composition.
+
+### Geometric vs raster vs RNG
+
+```{r}
+clust.out.geom = cluster_nbhds(pat=pat,ntype = "geometric",par=50L, blusparam = SomParam(centers=5L))
+nbhd_celltype_heatmap(clust.out.geom$centroids)
+```
+
+```{r}
+clust.out.raster = cluster_nbhds(pat=pat,ntype = "raster",par=50L, blusparam = SomParam(centers=5L))
+nbhd_celltype_heatmap(clust.out.raster$centroids)
+```
+
+```{r}
+clust.out.SIG = cluster_nbhds(pat=pat,ntype = "SIG", blusparam = SomParam(centers=5L))
+nbhd_celltype_heatmap(clust.out.SIG$centroids)
+```
+
+
+```{r}
+linked <- linkClusters(
+    list(
+        c1=clust.out.SIG$clusters,
+        c2=clust.out.geom$clusters
+    )
+)
+linked
+```
+
+```{r}
+meta <- igraph::cluster_walktrap(linked)
+plot(linked, mark.groups=meta)
+```
+
+
+### Combining to quickly evaluate clusterings
+
+1. Edge definitions
+2. Neighborhood scaling
+3. clustering parameters
+  3.1 type of clustering
+  3.2 parameters per type of clustering
+
+
+```{r}
+out = nbhdClusterSweep(pat, scales = c("comp"))
+saveRDS(out,paste0(RESULTS_PATH,'out.nbhdClusterSweep_15A.rds'))
+aris = out$aris
+
+pheatmap(aris)
+out$medoids
+
+
+
+# s = out$medoids[1]
+# 
+# spl=stringr::str_split(s,"_")[[1]]
+# 
+# 
+# 
+# spl2=stringr::str_split(spl[1],stringr::coll("."))[[1]]
+# 
+# spl2
+# 
+# setNames(list(spl2[2]),c(spl2[1]))
+```
+
+So we have three "representative" clusterings. Let's see if/how they affect downstream results.
+
+```{r}
+c1 = cluster_nbhds(pat,ntype="SIG",scale="comp",blusparam = SomParam(centers=5))
+c2 = cluster_nbhds(pat,ntype="gabriel",scale="comp",blusparam = SomParam(centers=5))
+c3 = cluster_nbhds(pat,ntype="SIG",scale="comp",blusparam = SomParam(centers=9))
+```
+
+```{r}
+linked <- linkClusters(
+    list(
+        c1=c1$clusters,
+        c2=c2$clusters,
+        c3=c3$clusters
+    )
+)
+linked
+```
+
+```{r}
+meta <- igraph::cluster_walktrap(linked)
+plot(linked, mark.groups=meta)
+```
+
+```{r}
+m = linkClustersMatrix(c1$clusters,c2$clusters)
+
+m
+```
+
+```{r}
+nbhd_celltype_heatmap(c1$centroids)
+nbhd_celltype_heatmap(c2$centroids)
+nbhd_celltype_heatmap(c3$centroids)
+
+```
+
+```{r}
+d1 = tibble::tibble(x=pat$x,y=pat$y,type=pat$marks,region=c1$clusters)
+
+d1 %>%
+  ggplot(aes(x=x,y=y,colour=region)) +
+  # scale_shape_manual(values=1:nlevels(d1$type)) +
+  geom_point()
+
+region_spatial_plot = function(clust.out,pat) {
+  d = tibble::tibble(x=pat$x,y=pat$y,type=pat$marks,region=clust.out$clusters)
+  p = d %>%
+      ggplot(aes(x=x,y=y,colour=region)) +
+      geom_point()
+  print(p)
+}
+
+region_spatial_plot(c1,pat)
+```
+
+```{r}
+c2 = cluster_nbhds(pat,ntype="geometric",par=50L,scale="comp",blusparam = SomParam(centers=5))
+
+region_spatial_plot(c2,pat)
+```
+
+
+These two clusterings look pretty similar to me. Some small discrepancies, but nothing very interesting here.
+
+

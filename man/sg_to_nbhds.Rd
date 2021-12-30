@@ -21,7 +21,7 @@ Extract cell neighborhoods from statgraphs object
 X = c(1,1,5)
 Y = c(2,4,3)
 cell_types = c("Tregs","tumor cells","vasculature")
-pat = create_ppp(X,Y,cell_types,keep_types=TRUE)
+pat = create_ppp(X,Y,cell_types,keep_types="all")
 sg = spatgraphs::spatgraph(pat,type="SIG")
 nbhds = sg_to_nbhds(sg,pat)
 }

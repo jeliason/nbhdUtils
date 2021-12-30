@@ -115,7 +115,7 @@ combinations <- clusterSweep(mat, BLUSPARAM=SNNGraphParam(),
 ```{r}
 set.seed(10)
 nclusters <- 3:25
-kcombos <- clusterSweep(mat, BLUSPARAM=KmeansParam(centers=5), centers=nclusters)
+kcombos <- clusterSweep(mat, BLUSPARAM=KmeansParam(centers=1L), centers=nclusters)
 
 sil <- vapply(as.list(kcombos$clusters), function(x) mean(approxSilhouette(mat, x)$width), 0)
 plot(nclusters, sil, xlab="Number of clusters", ylab="Average silhouette width")

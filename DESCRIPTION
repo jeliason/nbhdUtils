@@ -7,9 +7,21 @@ Description: What the package does (one paragraph).
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+biocViews:
 Imports:
+    bluster,
     dplyr,
+    GDAtools,
+    igraph,
     magrittr,
+    mclust,
+    pheatmap,
+    pracma,
+    rdist,
     spatgraphs,
-    spatstat.geom
+    spatstat.geom,
+    stats,
+    tibble,
+    tidyr,
+    viridis
 RoxygenNote: 7.1.2
