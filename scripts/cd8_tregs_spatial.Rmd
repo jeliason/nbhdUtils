@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(spatstat)
 library(glue)
+library(spatialOnco)
 ```
 
 ### Questions/Analyses
@@ -150,15 +151,68 @@ E_un <- envelope(pat_un, function(X,...) {pcf(Kcross.inhom(X,...))}, nsim = 9, n
 plot(E_un)
 ```
 
-### Model fitting
+## Model fitting
+
+### Multitype Poisson models
+
+Let's first focus on fitting models for the spot that has equal numbers of CD8+ T cells and Tregs:
 
 ```{r}
-m_eq = ppm(pat_eq ~ marks, MultiHard())
+pat = pat_eq
+m.1 = ppm(pat ~ 1)
+m.2 = ppm(pat ~ marks)
+m.4 = ppm(pat ~ marks * polynom(x,y,1))
+m.5 = ppm(pat ~ marks * harmonic(x,y,2))
+m.6 = ppm(pat ~ marks * polynom(x,y,3))
+m.7 = ppm(pat ~ marks * polynom(x,y,4))
 
-plot(fitin(m_eq))
+anova(m.1,m.2,m.4,m.5,m.6,m.7,test = "LR")
 
-fitin(m_eq)
+m.8 = ppm(pat ~ harmonic(x,y,2))
 
-plot(alltypes(pat_eq, Kcross))
+anova(m.8,m.5,test = "LR")
+
+summary(m.5)
+
+confint(m.5)
+
+m.9 = ppm(pat ~ marks + harmonic(x,y,2))
+
+anova(m.9,m.5,test = "LR")
+anova(m.1,m.5, test = "LR")
+
+m.best = m.5 # by LR test. Actually the 5 degree polynomial is the best, but I think we are just missing some covariates.
+
+plot(relrisk(m.best,casecontrol = F))
+plot(pat)
+```
+
+### Exploring dependency between kinds of points
+
+```{r}
+pat = pat_eq
+marktable(pat,N=2,collapse = T) # also markstats, applynbd
+nncorr(pat) # probability that nearest neighbor is of the same type
+
+plot(alltypes(pat, markconnect))
+```
+
+```{r}
+plot(alltypes(pat,Gcross))
+```
+
+#### Model diagnostics
+
+```{r}
+diagnose.ppm(m.best, which = "marks")
+compareFit(list(m.5,m.9))
+
+plot(Kres(m.best))
+```
+
+```{r}
+m_2 = ppm(pat ~ marks*polynom(x,y,2),MultiHard())
+
+AIC(m_2)
 ```
 

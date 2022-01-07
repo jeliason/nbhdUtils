@@ -10,6 +10,8 @@ library(spatgraphs)
 library(spatialOnco)
 library(bluster)
 library(pheatmap)
+library(ggnewscale)
+library(GGally)
 ```
 
 #### Data IO/preprocessing
@@ -24,7 +26,8 @@ pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx
 
 ```{r}
 spot_eq = df %>%
-  filter(spots == '15_B')
+  filter(spots == '15_B') %>%
+  select(-`...1`)
 keep_types = unique(spot_eq$ClusterName)
 keep_types = keep_types[keep_types != "granulocytes"]
 pat = create_ppp(spot_eq$X,spot_eq$Y,spot_eq$ClusterName,
@@ -45,13 +48,35 @@ CytoMAP functionality to replicate:
 7. region visualization and statistics
 
 
+### Write to file in programita format
+
+```{r}
+colnames(spot_eq)
+spot = spot_eq
+to_programita = function(spot) {
+  feats = spot %>%
+    dplyr::select(-c("CellID","patients","spots","groups","X","Y","Z")) %>%
+    mutate_at(vars(-ClusterName), ~(scale(.) %>% as.vector)) %>%
+    group_by(ClusterName) %>%
+    summarise(across(where(is.numeric), ~mean(.x, na.rm = TRUE))) %>%
+    dplyr::select(where(~!any(is.na(.)))) %>%
+    t
+  colnames(feats) = feats[1,]
+  feats = feats[-1,]
+  feats = apply(feats,2,as.numeric)
+  dists=as.matrix(stats::dist(t(feats)),labels=T)
+  colnames(dists) <- rownames(dists) <- colnames(feats)
+}
+```
+
+
 ### Neighborhoods
 
 Ideally, we'd like to input a neighborhood type (w/ parameters) and point pattern, and get a list of neighborhoods out.
 
 Furthermore, we should be able to specify a range of graph types, BLUSPARAMS and neighborhood scalings, and be able to see their 
 ```{r}
-sg = spatgraph(pat,type="SIG",par=NULL)
+sg = spatgraph(pat,type="gabriel",par=NULL)
 plot(sg,pat)
 
 nbhds = sg_to_nbhds(sg,pat)
@@ -203,21 +228,6 @@ nbhd_celltype_heatmap(c3$centroids)
 ```
 
 ```{r}
-d1 = tibble::tibble(x=pat$x,y=pat$y,type=pat$marks,region=c1$clusters)
-
-d1 %>%
-  ggplot(aes(x=x,y=y,colour=region)) +
-  # scale_shape_manual(values=1:nlevels(d1$type)) +
-  geom_point()
-
-region_spatial_plot = function(clust.out,pat) {
-  d = tibble::tibble(x=pat$x,y=pat$y,type=pat$marks,region=clust.out$clusters)
-  p = d %>%
-      ggplot(aes(x=x,y=y,colour=region)) +
-      geom_point()
-  print(p)
-}
-
 region_spatial_plot(c1,pat)
 ```
 
@@ -228,6 +238,53 @@ region_spatial_plot(c2,pat)
 ```
 
 
+TODO: reorder levels of region so that graphs look similar, automatically or user-defined
+
 These two clusterings look pretty similar to me. Some small discrepancies, but nothing very interesting here.
+
+### Pseudospace analysis
+
+```{r}
+sg = spatgraph(pat,type="geometric",par=50)
+
+nbhds = sg_to_nbhds(sg,pat)
+nbhds.obj = scale_nbhds(nbhds,scale = "comp")
+
+clust = cluster_nbhds(pat,nbhds.obj,blusparam = SomParam(centers=5))
+
+region_spatial_plot(clust,pat)
+
+cell_types = c("CD11c+ DCs","CD8+ T cells","Tregs","tumor cells","vasculature")
+pseudospace_plot(nbhds.obj, clusters = clust$clusters,
+                 against = "CD8+ T cells",
+                 cell_types = cell_types)
+
+
+pairsplot(nbhds.obj, clust$clusters, columns = cell_types)
+
+
+
+```
+
+### Ordination analysis
+
+```{r}
+library(vegan)
+library(ordr)
+
+ord = decorana(nbhds)
+set.seed(2022)
+ord = metaMDS(nbhds, maxit = 400, k=2)
+
+res <- list(rows = ord$rproj, cols = ord$cproj)
+class(res) <- c("tbl_ord", class(res))
+res
+
+
+
+print(res)
+
+plot(res)
+```
 
 

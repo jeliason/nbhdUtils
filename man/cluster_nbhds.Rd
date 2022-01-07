@@ -10,6 +10,7 @@ cluster_nbhds(
   ntype = "gabriel",
   scale = "comp",
   par = NULL,
+  spat.dist = NULL,
   blusparam = bluster::NNGraphParam()
 )
 }

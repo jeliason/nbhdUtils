@@ -122,6 +122,7 @@ get_raster_nbhds = function(pat,radius=50){
   raster_nbhds
 }
 
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 
 #' Cluster neighborhoods
 #'
@@ -134,7 +135,8 @@ get_raster_nbhds = function(pat,radius=50){
 #' @export
 #'
 #' @examples
-cluster_nbhds = function(pat=NULL,nbhds.obj=NULL,ntype="gabriel",scale="comp", par=NULL, blusparam = bluster::NNGraphParam()) {
+cluster_nbhds = function(pat=NULL,nbhds.obj=NULL,ntype="gabriel",scale="comp", par=NULL, spat.dist=NULL,
+                         blusparam = bluster::NNGraphParam()) {
   if(is.null(nbhds.obj) & !is.null(pat)) {
     if(ntype == "raster") {
       nbhds = get_raster_nbhds(pat,radius=par)
@@ -147,6 +149,11 @@ cluster_nbhds = function(pat=NULL,nbhds.obj=NULL,ntype="gabriel",scale="comp", p
     stop("Must pass either pat or nbhds.obj")
   }
   nbhds = nbhds.obj$scaled_nbhds
+  if(!is.null(spat.dist)) {
+    spat.dist[,1] = range01(spat.dist[,1])
+    spat.dist[,2] = range01(spat.dist[,2])
+  }
+  nbhds = cbind(nbhds,spat.dist)
   clusters = bluster::clusterRows(nbhds, BLUSPARAM = blusparam)
   nclust = length(unique(clusters))
   centroids = sapply(1:nclust, function(i) {

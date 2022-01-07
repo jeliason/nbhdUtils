@@ -1,0 +1,144 @@
+---
+title: "Geographically Weighted Analysis"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(spatialOnco)
+library(GWmodel)
+```
+
+#### Data IO/preprocessing
+
+```{r}
+DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+RESULTS_PATH = '../results/'
+df = read_csv(paste0(DATA_PATH,'CRC_master.csv'))
+pt_data = readxl::read_excel(paste0(DATA_PATH,'CRC_TMAs_patient_annotations.xlsx'))
+
+```
+
+```{r}
+spot = df %>%
+  filter(spots == '15_B') %>%
+  select(-`...1`) %>%
+  filter(ClusterName != "granulocytes")
+
+colnames(spot)
+```
+
+
+```{r}
+feats = spot %>%
+  dplyr::select(-c("CellID","ClusterName","patients","spots","groups","X","Y","Z"))
+  # mutate(across(everything(), ~(scale(.) %>% as.vector)))
+
+markers = colnames(feats)
+colnames(feats) <- sub(" .*", "", colnames(feats))
+coords = spot %>% select(c(X,Y))
+spdf = SpatialPointsDataFrame(coords = spot %>% select(c(X,Y)),data = feats)
+
+summary(spdf)
+
+spplot(spdf,zcol="MMP9")
+```
+
+```{r}
+names(spot)
+gw.ss.ga <- gwss(spdf, vars = c("MMP9","CD31"),
+                 kernel = "gaussian", adaptive = FALSE, bw = 50, quantile = TRUE)
+gw.ss.bi <- gwss(spdf, vars = c("MMP9","CD31"),
+                 kernel = "bisquare", adaptive = FALSE, bw = 50, quantile = TRUE)
+gw.ss.ga
+```
+
+```{r}
+spplot(spdf,"MMP9",
+       cuts = 7,
+       main = "MMP9")
+spplot(gw.ss.ga$SDF, "MMP9_Median",
+       cuts = 7,
+       main = "GW median for MMP9 (robust)")
+spplot(gw.ss.ga$SDF, "MMP9_IQR",
+       cuts = 7,
+       main = "GW inter-quartile ranges for MMP9 (robust)")
+
+spplot(spdf,"CD31",
+       cuts = 7,
+       main = "CD31")
+spplot(gw.ss.ga$SDF, "CD31_Median",
+       cuts = 7,
+       main = "GW median for CD31 (robust)")
+spplot(gw.ss.ga$SDF, "CD31_IQR",
+       cuts = 7,
+       main = "GW inter-quartile ranges for CD31 (robust)")
+
+spplot(gw.ss.ga$SDF, "Spearman_rho_MMP9.CD31",
+       cuts = 7,
+       main = "GW correlation between MMP9 and CD31 (robust)")
+spplot(gw.ss.ga$SDF, "Corr_MMP9.CD31",
+       cuts = 7,
+       main = "GW correlation between MMP9 and CD31")
+```
+### GW PCA
+
+```{r}
+Data.scaled <- scale(as.matrix(feats)) %>%
+                as_tibble()%>%
+                dplyr::select(where(~!any(is.na(.))))
+
+pca.basic <- princomp(Data.scaled, cor = F)
+(pca.basic$sdev^2 / sum(pca.basic$sdev^2))*100
+
+pca.basic$loadings
+pca.basic$loadings[,1]
+```
+
+
+```{r}
+Data.scaled.spdf <- SpatialPointsDataFrame(coords,as.data.frame(Data.scaled))
+
+bw.gwpca.basic <- bw.gwpca(Data.scaled.spdf,
+                           vars = colnames(Data.scaled.spdf@data),
+                           k = 3, robust = FALSE, adaptive=TRUE)
+
+bw.gwpca.basic
+
+gwpca.basic <- gwpca(Data.scaled.spdf,
+                     vars = colnames(Data.scaled.spdf@data),
+                     bw = 300, k = 20,
+                     robust = FALSE, adaptive = TRUE)
+
+prop.var <- function(gwpca.obj, n.components) {
+  return((rowSums(gwpca.obj$var[, 1:n.components])/rowSums(gwpca.obj$var))*100)
+}
+
+var.gwpca.basic <- prop.var(gwpca.basic, 3)
+
+spot$var.gwpca.basic <- var.gwpca.basic
+
+
+ggplot(spot,aes(x=X,y=Y,colour=var.gwpca.basic)) + 
+  geom_point()
+```
+
+
+```{r}
+loadings.pc1.basic <- gwpca.basic$loadings[,,1]
+win.item.basic = max.col(abs(loadings.pc1.basic))
+
+spot$win.item.basic = factor(markers[win.item.basic])
+spot %>%
+  ggplot(aes(x=X,y=Y,groups=win.item.basic,colour=win.item.basic)) +
+  geom_point() + 
+  scale_colour_brewer(palette = "Paired")
+```
+
+1. CD44 - stroma. Present in higher levels in CRC in stroma, also present 
+
+```{r}
+
+```
+
