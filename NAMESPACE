@@ -2,6 +2,7 @@
 
 export("%>%")
 export(celltype_heatmap)
+export(celltype_pairsplot)
 export(cluster_nbhds)
 export(create_ppp)
 export(get_disc_nbhd)

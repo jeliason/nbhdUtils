@@ -260,9 +260,7 @@ pseudospace_plot(nbhds.obj, clusters = clust$clusters,
                  cell_types = cell_types)
 
 
-pairsplot(nbhds.obj, clust$clusters, columns = cell_types)
-
-
+celltype_pairsplot(nbhds.obj, clust$clusters, columns = cell_types)
 
 ```
 

@@ -85,7 +85,7 @@ pseudospace_plot = function(nbhds.obj, clusters, against = "Tregs",cell_types = 
 #' @export
 #'
 #' @examples
-pairsplot = function(nbhds.obj, clusters, columns = NULL) {
+celltype_pairsplot = function(nbhds.obj, clusters, cell_types = NULL) {
   nbhds = nbhds.obj$scaled_nbhds
   if(is.null(columns)) {
     columns = 1:ncol(nbhds)
