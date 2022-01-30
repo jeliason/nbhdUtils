@@ -1,0 +1,197 @@
+---
+title: "Spatial RF"
+output: html_notebook
+---
+
+#### spatialRF
+
+```{r setup}
+library(tidyverse)
+library(spatialOnco)
+library(spatgraphs)
+library(DHARMa)
+library(spdep)
+library(spatialRF)
+library(iRF)
+library(spmoran)
+
+DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+RESULTS_PATH = '../../results/spatialrf_01232020/'
+dir.create(RESULTS_PATH)
+df = read_csv(paste0(DATA_PATH,'CRC_master.csv'))
+
+spot.labels = c("15_A","15_B","16_A","16_B")
+keep_types = unique(df$ClusterName)
+
+nbhds = make_spot_nbhds(df,spot.labels,keep_types, radius=50)
+
+d = nbhds %>% filter(spot == "15_A")
+MIN_DIST = 25
+
+xy = d %>%
+  dplyr::select(c(X,Y)) %>%
+  rename(x = X,y=Y) %>%
+  as.data.frame
+
+set.seed(2022); xy = spatialRF::thinning(xy,minimum.distance = MIN_DIST)
+
+d = d %>%
+  semi_join(.,xy,by=c("X"="x","Y"="y")) %>%
+  mutate(obs = 1:nrow(.))
+
+# dependent.variable.name = "tumor.cells"
+# predictor.variable.names = colnames(d %>% select(-c(X,Y,spot,tumor.cells)))
+# 
+# distance.matrix = as.matrix(stats::dist(xy))
+# 
+# sum(apply(data, 2, is.na))
+# 
+# predictor.variable.names = predictor.variable.names[apply(data[,predictor.variable.names], 2, var) != 0]
+# 
+# apply(data[,predictor.variable.names], 2, var) != 0
+# predictor.variable.names = predictor.variable.names[predictor.variable.names != "dirt"]
+# 
+# sum(predictor.variable.names %in% sapply(as.data.frame(scale(data)), function(x)any(is.nan(x))))
+# 
+# sapply(as.data.frame(scale(data)), function(x)any(is.infinite(x)))
+# 
+# distance.thresholds <- c(100,200,500,750,1000,1500,2000)
+```
+
+
+```{r}
+eigs = meigen_f(xy, model = "sph")
+
+dists = as.matrix(stats::dist(xy))
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot))
+
+fit.1 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.1"),
+           x=X, 
+           y=d$tumor.cells, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        )
+
+
+summarize_rf <- function(rf_fit) {
+  rf_fit$interaction %>%
+  arrange(desc(prevalence)) %>%
+  print()
+
+  print(rf_fit$weights)
+  
+  resid = rf_fit$rf.list$predicted - d$tumor.cells
+  cat('\n\n RMSE: ',sqrt(mean(resid^2)))
+  
+  print(moran(resid,dists,verbose = F)$test)
+  rf_fit
+}
+
+summarize_rf(fit.1)
+
+moran(d$tumor.cells,dists)
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot) )%>% bind_cols(.,as_tibble(eigs$sf[,1:5]))
+
+fit.2 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.2"),
+           x=X, 
+           y=d$tumor.cells, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot) )%>% bind_cols(.,as_tibble(eigs$sf[,1:10]))
+
+fit.3 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.3"),
+           x=X, 
+           y=d$tumor.cells, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot) )%>% bind_cols(.,as_tibble(eigs$sf[,1:50]))
+
+fit.4 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.4"),
+           x=X, 
+           y=d$tumor.cells, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+
+X = eigs$sf
+
+fit.5 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.5"),
+           x=X, 
+           y=d$tumor.cells, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot) )
+y = d$tumor.cells - fit.5$rf.list$predicted
+
+fit.6 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.6"),
+           x=X, 
+           y=y, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+
+X = d %>% select(-c(X,Y,tumor.cells,obs,dirt,spot) ) %>% bind_cols(.,as_tibble(eigs$sf))
+y = d$tumor.cells
+
+fit.7 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.7"),
+           x=X, 
+           y=y, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+```
+
+
+```{r}
+X = df %>%
+  select(`CD44 - stroma`:DRAQ5)
+y = df$ClusterName
+
+fit.2.1 <- run_model(iRF::iRF,
+           file = paste0(RESULTS_PATH,"fit.2.1"),
+           x=X, 
+           y=y, 
+           n.iter=5, 
+           n.core=-1,
+           n.bootstrap=10,
+           int.return=5
+        ) %>%
+  summarize_rf()
+```
+

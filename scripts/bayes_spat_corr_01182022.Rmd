@@ -1,0 +1,438 @@
+---
+title: "Bayesian models for spatial autocorrelation"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+library(spatialOnco)
+library(spatgraphs)
+library(brms)
+library(bayesplot)
+library(DHARMa)
+library(geostan)
+library(spdep)
+
+DATA_PATH = '../data/nbhd_coord_schurch_2020/'
+RESULTS_PATH = '../../results/bayes_spat_corr_01182022/'
+dir.create(RESULTS_PATH)
+df = read_csv(paste0(DATA_PATH,'CRC_master.csv'))
+
+spot.labels = c("15_A","15_B","16_A","16_B")
+keep_types = unique(df$ClusterName)
+
+nbhds = make_spot_nbhds(df,spot.labels,keep_types, radius=50)
+
+nbhds
+
+d = nbhds %>% filter(spot == "15_A")
+MIN_DIST = 25
+
+xy = d %>%
+  dplyr::select(c(X,Y)) %>%
+  rename(x = X,y=Y) %>%
+  as.data.frame
+
+set.seed(2022); xy = spatialRF::thinning(xy,minimum.distance = MIN_DIST)
+
+make_weight_matrix <- function(coords,type='dnn',par=50) {
+  coords = as.matrix(coords)
+  if(type == 'dnn') {
+  nbs = spdep::dnearneigh(coords,0,par)
+  } else if(type == 'knn') {
+  knn.out = spdep::knearneigh(coords,k=par)
+  nbs = spdep::knn2nb(knn.out,sym = TRUE)
+  }
+  C = spdep::nb2mat(nbs,style="B",zero.policy=T)
+  C
+}
+
+d = d %>%
+  semi_join(.,xy,by=c("X"="x","Y"="y")) %>%
+  mutate(obs = 1:nrow(.))
+
+col.rel.nb <- graph2nb(relativeneigh(as.matrix(xy)), sym=TRUE)
+
+C = spdep::nb2mat(col.rel.nb,style="B",zero.policy=T)
+```
+
+```{r}
+options(brms.file_refit = "always")
+
+
+C = make_weight_matrix(xy,type='dnn',par=50)
+sum(C)
+
+
+
+fit.1 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="icar"),
+             family = gaussian(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.1"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+fit.2 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs,
+             family = gaussian(),
+             data = d,
+             file = paste0(RESULTS_PATH,"fit.2"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+# fit.3 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="bym2"),
+#              family = gaussian(),
+#              data = d,
+#              data2 = list(M=C),
+#              file = paste0(RESULTS_PATH,"fit.3"),
+#              cores=4,
+#              warmup = 1000,
+#              iter = 2000) %>%
+#   add_criterion("loo")
+summary(fit.1)
+
+check.1 <- check_brms(fit.1,plot=F)
+check.2 <- check_brms(fit.2,plot=F)
+
+plotResiduals(check.1)
+
+testSpatialAutocorrelation(check.1,x=xy$x,y=xy$y)
+testSpatialAutocorrelation(check.2,x=xy$x,y=xy$y)
+
+loo_compare(fit.1,fit.2)
+
+hist(check.1$fittedPredictedResponse)
+```
+
+```{r}
+C = make_weight_matrix(xy,type = 'knn',par = 2)
+sum(C)
+
+fit.4 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="escar"),
+             family = gaussian(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.4"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+
+
+fit.5 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = gaussian(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.5"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+summary(fit.5)
+
+summary(fit.1)
+```
+
+```{r}
+
+
+plot(col.rel.nb,xy)
+
+fit.6 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = poisson(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.6"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+summary(fit.6)
+
+fit.7 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = negbinomial(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.7"),
+             cores=4,
+             warmup = 1000,
+             iter = 2000) %>%
+  add_criterion("loo")
+
+summary(fit.7)
+
+check.7 <- check_brms(fit.7,plot=F)
+check.6 <- check_brms(fit.6,plot=F)
+testSpatialAutocorrelation(check.6,x=xy$x,y=xy$y)
+
+plotQQunif(check.7)
+plotResiduals(check.7)
+
+```
+
+```{r}
+prior_summary(fit.6)
+
+pri <-prior_draws(fit.6)
+
+fit.6.1 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = poisson(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.6.1"),
+             prior = prior(normal(1,0.1), class = sdcar),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+
+betas = fixef(fit.6.1,summary = F)
+ndraws = 1000
+X = d %>% select(CD4..T.cells.CD45RO.,CD68.CD163..macrophages,CD8..T.cells,Tregs)
+X = cbind(Intercept=rep(1,dim(X)[1]),X)
+beta.idx = sample(1:dim(betas)[1],size=ndraws,replace=TRUE)
+rate_pred = exp(betas[beta.idx,] %*% t(X))
+post_pred = matrix(0,nrow = ndraws,ncol = dim(X)[1])
+post_pred[] = rpois(n=length(rate_pred),lambda=rate_pred)
+
+check.man.6.1 <- DHARMa::createDHARMa(simulatedResponse = t(post_pred),
+                                     observedResponse = d$tumor.cells,
+                                     integerResponse = TRUE)
+
+plot(check.man.6.1)
+
+fit.6.3 <- brm(formula = tumor.cells ~ 1 + as.factor(CD4..T.cells.CD45RO.) + CD68.CD163..macrophages + CD8..T.cells + as.factor(Tregs) + car(M,gr=obs,type="esicar"),
+             family = poisson(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.6.3"),
+             prior = prior(normal(1,0.1), class = sdcar),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+
+summary(fit.6.3)
+hist(rstudent_t(10000,3,0,2.5))
+hist(rnorm(10000))
+
+fit.7.1 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = negbinomial(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.7.1"),
+             prior = prior(normal(1,0.1), class = sdcar),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+
+summary(fit.7.1)
+
+summary(fit.7.1)
+betas = fixef(fit.7.1,summary = F)
+ndraws = 1000
+X = d %>% select(CD4..T.cells.CD45RO.,CD68.CD163..macrophages,CD8..T.cells,Tregs)
+X = cbind(Intercept=rep(1,dim(X)[1]),X)
+beta.idx = sample(1:dim(betas)[1],size=ndraws,replace=TRUE)
+rate_pred = exp(betas[beta.idx,] %*% t(X))
+theta = mean(as.data.frame(fit.7.1)$shape)
+
+post_pred = matrix(0,nrow = ndraws,ncol = dim(X)[1])
+post_pred[] = MASS::rnegbin(n=length(rate_pred),mu=rate_pred,theta=theta)
+
+check.man.7.1 <- DHARMa::createDHARMa(simulatedResponse = t(post_pred),
+                                     observedResponse = d$tumor.cells,
+                                     integerResponse = TRUE)
+
+plot(check.man.7.1)
+
+
+
+
+testDispersion(check.man.6.1)
+testDispersion(check.man.7.1)
+
+testZeroInflation(check.man.6.1)
+testZeroInflation(check.man.7.1)
+
+plotResiduals(check.man.6.1,form = d$CD4..T.cells.CD45RO.)
+plotResiduals(check.man.6.1,form = d$Tregs)
+testCategorical(check.man.6.1,catPred = d$CD68.CD163..macrophages)
+
+plot(d$Tregs,check.man.6.1$scaledResiduals)
+
+check.6.1 <- check_brms(fit.6.1)
+testDispersion(check.6.1)
+testZeroInflation(check.6.1)
+countNums <- function(x) sum(x == 3)
+testGeneric(check.6.1,countNums)
+testQuantiles(check.6.1)
+plotResiduals(check.6.1,form = d$CD4..T.cells.CD45RO.)
+plotResiduals(check.6.1,form = d$Tregs)
+testCategorical(check.6.1,catPred = d$CD68.CD163..macrophages)
+
+f = as.formula(paste0("tumor.cells ~ (",paste0(colnames(d %>% select(-c(X,Y,spot,dirt,obs,tumor.cells,undefined))),collapse= " + "),")^2"))
+cv.fit <- glmnetUtils::cv.glmnet(f,data=d,family="poisson")
+
+coe = coef(cv.fit)
+terms = rownames(coe)[coe[,1] != 0]
+terms = terms[-1]
+
+f = as.formula(paste0("tumor.cells ~ ",paste0(terms,collapse= " + ")," + car(M,gr=obs,type=\"esicar\")"))
+
+fit.6.2 <- brm(formula = f,
+             family = poisson(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.6.2"),
+             prior = prior(normal(1,0.1), class = sdcar),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+
+summary(fit.6.2)
+
+check.6.2 <- check_brms(fit.6.2)
+testDispersion(check.6.2)
+testZeroInflation(check.6.2)
+
+check.7.1 <- check_brms(fit.7.1)
+testDispersion(check.7.1)
+testZeroInflation(check.7.1)
+
+
+
+testSpatialAutocorrelation(check.6.1,x=xy$x,y=xy$y)
+testSpatialAutocorrelation(check.7.1,x=xy$x,y=xy$y)
+
+```
+
+
+```{r}
+form = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs
+chain1 <- CARBayes::S.CARleroux(formula=form, data=d, family="poisson", W=C,
+burnin=100000, n.sample=300000, thin=100)
+chain2 <- CARBayes::S.CARleroux(formula=form, data=d, family="poisson", W=C,
+burnin=100000, n.sample=300000, thin=100)
+chain3 <- CARBayes::S.CARleroux(formula=form, data=d, family="poisson", W=C,
+burnin=100000, n.sample=300000, thin=100)
+
+saveRDS(list(chain1=chain1,chain2=chain2,chain3=chain3),paste0(RESULTS_PATH,'carb.1.rds'))
+
+print(chain1)
+print(chain2)
+print(chain3)
+
+dim(chain1$samples$fitted)
+
+chain1$samples$
+
+chain1$model
+
+ndraws = 1000
+X = d %>% select(CD4..T.cells.CD45RO.,CD68.CD163..macrophages,CD8..T.cells,Tregs)
+X = cbind(Intercept=rep(1,dim(X)[1]),X)
+betas = rbind(chain1$samples$beta,chain2$samples$beta,chain3$samples$beta)
+beta.idx = sample(1:dim(betas)[1],size=ndraws,replace=TRUE)
+rate_pred = exp(betas[beta.idx,] %*% t(X))
+post_pred = matrix(0,nrow = ndraws,ncol = dim(X)[1])
+post_pred[] = rpois(n=length(rate_pred),lambda=rate_pred)
+
+check.carb.1 <- DHARMa::createDHARMa(simulatedResponse = t(post_pred),
+                                     observedResponse = d$tumor.cells,
+                                     integerResponse = TRUE)
+
+plot(check.carb.1)
+```
+
+
+```{r}
+
+fit.8 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = zero_inflated_poisson(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.8"),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+summary(fit.8)
+check.8 <- check_brms(fit.8)
+# testSpatialAutocorrelation(check.8,x=xy$x,y=xy$y)
+
+betas = fixef(fit.8,summary = F)
+ndraws = 1000
+X = d %>% select(CD4..T.cells.CD45RO.,CD68.CD163..macrophages,CD8..T.cells,Tregs)
+X = cbind(Intercept=rep(1,dim(X)[1]),X)
+beta.idx = sample(1:dim(betas)[1],size=ndraws,replace=TRUE)
+rate_pred = exp(betas[beta.idx,] %*% t(X))
+zi = mean(as.data.frame(fit.8)$zi)
+post_pred = matrix(0,nrow = ndraws,ncol = dim(X)[1])
+post_pred[] = ifelse(rbinom(n=length(rate_pred), size = 1, prob = zi) > 0, 0, rpois(n=length(rate_pred),lambda=rate_pred))
+
+check.man.8 <- DHARMa::createDHARMa(simulatedResponse = t(post_pred),
+                                     observedResponse = d$tumor.cells,
+                                     integerResponse = TRUE)
+
+plot(check.man.8)
+
+fit.9 <- brm(formula = tumor.cells ~ 1 + CD4..T.cells.CD45RO. + CD68.CD163..macrophages + CD8..T.cells + Tregs + car(M,gr=obs,type="esicar"),
+             family = zero_inflated_negbinomial(),
+             data = d,
+             data2 = list(M=C),
+             file = paste0(RESULTS_PATH,"fit.9"),
+             cores=4,
+             warmup = 1000,
+             iter = 4000) %>%
+  add_criterion("loo")
+summary(fit.9)
+check.9 <- check_brms(fit.9)
+testSpatialAutocorrelation(check.9,x=xy$x,y=xy$y)
+
+s = brms::posterior_epred(fit.9)
+```
+
+```{r}
+# generate some spatial data
+east <- north <- 1:10
+Grid <- expand.grid(east, north)
+K <- nrow(Grid)
+
+# set up distance and neighbourhood matrices
+distance <- as.matrix(dist(Grid))
+W <- array(0, c(K, K))
+W[distance == 1] <- 1 	
+
+# generate the covariates and response data
+x1 <- rnorm(K)
+x2 <- rnorm(K)
+theta <- rnorm(K, sd = 0.05)
+phi <- rmulti_normal(
+  1, mu = rep(0, K), Sigma = 0.4 * exp(-0.1 * distance)
+)
+eta <- x1 + x2 + phi
+prob <- exp(eta) / (1 + exp(eta))
+size <- rep(50, K)
+y <- rbinom(n = K, size = size, prob = prob)
+dat <- data.frame(y, size, x1, x2)
+
+# fit a CAR model
+fit <- brm(y | trials(size) ~ x1 + x2 + car(W), 
+           data = dat, data2 = list(W = W),
+           family = binomial()) 
+
+summary(fit)
+
+check_brms(fit)
+```
+

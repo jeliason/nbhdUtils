@@ -30,3 +30,108 @@ create_ppp = function(X,Y,cell_types,keep_types="all") {
   
   return(pat)
 }
+
+#' Title
+#'
+#' @param .tbl 
+#' @param ... 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+named_group_split <- function(.tbl, keep = FALSE, ...) {
+  grouped <- group_by(.tbl, ...)
+  names <- rlang::inject(paste(!!!group_keys(grouped), sep = " / "))
+  
+  grouped %>% 
+    group_split(., .keep = keep) %>% 
+    rlang::set_names(names)
+}
+
+#' Title
+#'
+#' @param model 
+#' @param integer 
+#' @param plot 
+#' @param ... 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+check_brms <- function(model,             # brms model
+                       integer = TRUE,   # integer response? (TRUE/FALSE)
+                       plot = TRUE,       # make plot?
+                       ...                # further arguments for DHARMa::plotResiduals 
+) {
+  
+  mdata <- brms::standata(model)
+  if (!"Y" %in% names(mdata))
+    stop("Cannot extract the required information from this brms model")
+  
+  dharma.obj <- DHARMa::createDHARMa(
+    simulatedResponse = t(brms::posterior_predict(model, ndraws = 1000, re.form = NULL)),
+    observedResponse = mdata$Y, 
+    fittedPredictedResponse = apply(
+      t(brms::posterior_epred(model, ndraws = 1000, re.form = NULL)),
+      1,
+      mean),
+    integerResponse = integer)
+  
+  if (isTRUE(plot)) {
+    plot(dharma.obj, ...)
+  }
+  
+  invisible(dharma.obj)
+}
+
+make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
+#' Title
+#'
+#' @param spot 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+  nbhds.list = sapply(spot.labels, function(spot) {
+    filt.df = df %>%
+      filter(spots == spot) %>%
+      select(-`...1`)
+    pat = create_ppp(filt.df$X,filt.df$Y,filt.df$ClusterName,
+                     keep_types = keep_types)
+    sg = spatgraphs::spatgraph(pat,type="geometric",par=radius)
+    
+    nbhds = sg_to_nbhds(sg,pat) %>% as_tibble() %>% mutate(spot = spot) %>%
+      mutate(X = filt.df$X, Y = filt.df$Y)
+    
+    list(nbhds)
+  })
+  sapply(nbhds.list,function(nbhds) length(colnames(nbhds)))
+  nbhds = bind_rows(nbhds.list) %>% as_tibble()
+  nbhds[is.na(nbhds)] <- 0
+  names(nbhds) <- make.names(colnames(nbhds))
+  nbhds
+}
+
+#' Title
+#'
+#' @param fit.model 
+#' @param file 
+#' @param ... 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+run_model <- function(fit.model,file,...) {
+  file = paste0(file,".rds")
+  if(file.exists(file)) {
+    model = readRDS(file)
+  } else {
+    model = fit.model(...)
+    saveRDS(model,file)
+  }
+  model
+}

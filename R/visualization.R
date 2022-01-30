@@ -87,11 +87,11 @@ pseudospace_plot = function(nbhds.obj, clusters, against = "Tregs",cell_types = 
 #' @examples
 celltype_pairsplot = function(nbhds.obj, clusters, cell_types = NULL) {
   nbhds = nbhds.obj$scaled_nbhds
-  if(is.null(columns)) {
-    columns = 1:ncol(nbhds)
+  if(is.null(cell_types)) {
+    cell_types = 1:ncol(nbhds)
   }
   nbhds.obj$scaled_nbhds %>%
     as_tibble() %>%
     mutate(cluster = factor(clusters)) %>%
-    ggpairs(aes(alpha=0.4, colour = cluster, shape = cluster),columns = columns)
+    ggpairs(aes(alpha=0.4, colour = cluster, shape = cluster),columns = cell_types)
 }
