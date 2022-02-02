@@ -1,5 +1,5 @@
-Package: spatialOnco
-Title: Spatial Functions For Analysis Of Tumor Data
+Package: nbhdUtils
+Title: Spatial Functions For Neighborhood Analysis Of Tumor Data
 Version: 0.1.0
 Authors@R: 
     person("Joel", "Eliason", , "joelne@umich.edu", role = c("aut", "cre"))
@@ -12,6 +12,8 @@ Imports:
     bluster,
     dplyr,
     GDAtools,
+    ggnewscale,
+    rlang,
     igraph,
     magrittr,
     mclust,
@@ -23,5 +25,7 @@ Imports:
     stats,
     tibble,
     tidyr,
-    viridis
+    viridis,
+    ggplot2,
+    GGally
 RoxygenNote: 7.1.2

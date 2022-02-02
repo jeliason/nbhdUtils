@@ -37,8 +37,8 @@ nbhd_celltype_heatmap = function(centroids) {
 region_spatial_plot = function(clust.out,pat) {
   d = tibble::tibble(x=pat$x,y=pat$y,type=pat$marks,region=clust.out$clusters)
   p = d %>%
-    ggplot(aes(x=x,y=y,colour=region)) +
-    geom_point()
+    ggplot2::ggplot(ggplot2::aes(x=x,y=y,colour=region)) +
+    ggplot2::geom_point()
   print(p)
 }
 
@@ -60,17 +60,17 @@ pseudospace_plot = function(nbhds.obj, clusters, against = "Tregs",cell_types = 
   nbhds = nbhds.obj$scaled_nbhds
   
   p = nbhds %>%
-    as_tibble() %>%
-    mutate(cluster = clusters) %>%
-    arrange(!!sym(against)) %>%
-    mutate(ord_nbhd = 1:dim(.)[1]) %>%
-    pivot_longer(cols = -c(ord_nbhd,cluster),names_to = "cell_type",values_to = "comp") %>%
-    filter(cell_type %in% cell_types) %>% {
-      ggplot(data=.,aes(x=ord_nbhd,y = comp, colour = cell_type)) +
-        geom_smooth() + 
-        new_scale("color") +
-        geom_segment(aes(colour = cluster,y=-0.5,yend=-0.4,xend=ord_nbhd)) +
-        scale_colour_brewer(palette = "Set1")
+    tibble::as_tibble() %>%
+    dplyr::mutate(cluster = clusters) %>%
+    dplyr::arrange(!!rlang::sym(against)) %>%
+    dplyr::mutate(ord_nbhd = 1:dim(.)[1]) %>%
+    tidyr::pivot_longer(cols = -c(ord_nbhd,cluster),names_to = "cell_type",values_to = "comp") %>%
+    dplyr::filter(cell_type %in% cell_types) %>% {
+      ggplot2::ggplot(data=.,ggplot2::aes(x=ord_nbhd,y = comp, colour = cell_type)) +
+        ggplot2::geom_smooth() + 
+        ggnewscale::new_scale("color") +
+        ggplot2::geom_segment(ggplot2::aes(colour = cluster,y=-0.5,yend=-0.4,xend=ord_nbhd)) +
+        ggplot2::scale_colour_brewer(palette = "Set1")
     }
   print(p)
 }
@@ -91,7 +91,7 @@ celltype_pairsplot = function(nbhds.obj, clusters, cell_types = NULL) {
     cell_types = 1:ncol(nbhds)
   }
   nbhds.obj$scaled_nbhds %>%
-    as_tibble() %>%
-    mutate(cluster = factor(clusters)) %>%
-    ggpairs(aes(alpha=0.4, colour = cluster, shape = cluster),columns = cell_types)
+    tibble::as_tibble() %>%
+    dplyr::mutate(cluster = factor(clusters)) %>%
+    GGally::ggpairs(ggplot2::aes(alpha=0.4, colour = cluster, shape = cluster),columns = cell_types)
 }

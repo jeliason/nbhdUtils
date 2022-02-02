@@ -41,11 +41,11 @@ create_ppp = function(X,Y,cell_types,keep_types="all") {
 #'
 #' @examples
 named_group_split <- function(.tbl, keep = FALSE, ...) {
-  grouped <- group_by(.tbl, ...)
-  names <- rlang::inject(paste(!!!group_keys(grouped), sep = " / "))
+  grouped <- dplyr::group_by(.tbl, ...)
+  names <- rlang::inject(paste(!!!dplyr::group_keys(grouped), sep = " / "))
   
   grouped %>% 
-    group_split(., .keep = keep) %>% 
+    dplyr::group_split(., .keep = keep) %>% 
     rlang::set_names(names)
 }
 
@@ -97,19 +97,19 @@ make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
 #' @examples
   nbhds.list = sapply(spot.labels, function(spot) {
     filt.df = df %>%
-      filter(spots == spot) %>%
-      select(-`...1`)
+      dplyr::filter(spots == spot) %>%
+      dplyr::select(-`...1`)
     pat = create_ppp(filt.df$X,filt.df$Y,filt.df$ClusterName,
                      keep_types = keep_types)
     sg = spatgraphs::spatgraph(pat,type="geometric",par=radius)
     
-    nbhds = sg_to_nbhds(sg,pat) %>% as_tibble() %>% mutate(spot = spot) %>%
-      mutate(X = filt.df$X, Y = filt.df$Y)
+    nbhds = sg_to_nbhds(sg,pat) %>% tibble::as_tibble() %>% dplyr::mutate(spot = spot) %>%
+      dplyr::mutate(X = filt.df$X, Y = filt.df$Y)
     
     list(nbhds)
   })
   sapply(nbhds.list,function(nbhds) length(colnames(nbhds)))
-  nbhds = bind_rows(nbhds.list) %>% as_tibble()
+  nbhds = dplyr::bind_rows(nbhds.list) %>% tibble::as_tibble()
   nbhds[is.na(nbhds)] <- 0
   names(nbhds) <- make.names(colnames(nbhds))
   nbhds
