@@ -31,12 +31,12 @@ create_ppp = function(X,Y,cell_types,keep_types="all") {
   return(pat)
 }
 
-#' Title
+#' Split groups into list with names of each group
 #'
-#' @param .tbl 
-#' @param ... 
+#' @param .tbl tibble to perform group_by
+#' @param ... additional arguments to dplyr::group_by
 #'
-#' @return
+#' @return list of groups with names
 #' @export
 #'
 #' @examples
@@ -49,21 +49,21 @@ named_group_split <- function(.tbl, keep = FALSE, ...) {
     rlang::set_names(names)
 }
 
-#' Title
+#' Check a BRMS model using the DHARMa simulated residuals
 #'
-#' @param model 
-#' @param integer 
-#' @param plot 
-#' @param ... 
+#' @param model brms model
+#' @param integer integer response? (TRUE/FALSE)
+#' @param plot make plot?
+#' @param ... further arguments for DHARMa::plotResiduals 
 #'
-#' @return
+#' @return a DHARMa object
 #' @export
 #'
 #' @examples
-check_brms <- function(model,             # brms model
-                       integer = TRUE,   # integer response? (TRUE/FALSE)
-                       plot = TRUE,       # make plot?
-                       ...                # further arguments for DHARMa::plotResiduals 
+check_brms <- function(model,             
+                       integer = TRUE,   
+                       plot = TRUE,       
+                       ...                
 ) {
   
   mdata <- brms::standata(model)
@@ -86,15 +86,20 @@ check_brms <- function(model,             # brms model
   invisible(dharma.obj)
 }
 
-make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
+
 #' Title
 #'
-#' @param spot 
+#' @param df 
+#' @param spot.labels 
+#' @param keep_types 
+#' @param radius 
 #'
 #' @return
 #' @export
 #'
 #' @examples
+make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
+
   nbhds.list = sapply(spot.labels, function(spot) {
     filt.df = df %>%
       dplyr::filter(spots == spot) %>%
