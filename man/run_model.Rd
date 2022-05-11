@@ -2,20 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{run_model}
 \alias{run_model}
-\title{Title}
+\title{Fit or load model}
 \usage{
 run_model(fit.model, file, ...)
 }
 \arguments{
-\item{fit.model}{}
+\item{fit.model}{model fitting function}
 
-\item{file}{}
+\item{file}{filename}
 
-\item{...}{}
+\item{...}{arguments to pass to fit.model}
 }
 \value{
-
+fitted model, from disk if already exists, otherwise will fit
 }
 \description{
-Title
+Fit or load model
 }

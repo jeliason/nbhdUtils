@@ -2,16 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{make_spot_nbhds}
 \alias{make_spot_nbhds}
-\title{Title}
+\title{Make geometric neighborhoods dataframe}
 \usage{
 make_spot_nbhds(df, spot.labels, keep_types, radius = 50)
 }
 \arguments{
-\item{spot}{}
+\item{df}{cleaned data frame from Schurch et al}
+
+\item{spot.labels}{spots for which to create neighborhoods}
+
+\item{keep_types}{cell types to keep}
+
+\item{radius}{radius of neighborhood}
 }
 \value{
-
+dataframe of neighborhood composition
 }
 \description{
-Title
+Make geometric neighborhoods dataframe
 }

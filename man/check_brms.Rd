@@ -2,22 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{check_brms}
 \alias{check_brms}
-\title{Title}
+\title{Check a BRMS model using the DHARMa simulated residuals}
 \usage{
 check_brms(model, integer = TRUE, plot = TRUE, ...)
 }
 \arguments{
-\item{model}{}
+\item{model}{brms model}
 
-\item{integer}{}
+\item{integer}{integer response? (TRUE/FALSE)}
 
-\item{plot}{}
+\item{plot}{make plot?}
 
-\item{...}{}
+\item{...}{further arguments for DHARMa::plotResiduals}
 }
 \value{
-
+a DHARMa object
 }
 \description{
-Title
+Check a BRMS model using the DHARMa simulated residuals
 }

@@ -87,14 +87,14 @@ check_brms <- function(model,
 }
 
 
-#' Title
+#' Make geometric neighborhoods dataframe
 #'
-#' @param df 
-#' @param spot.labels 
-#' @param keep_types 
-#' @param radius 
+#' @param df cleaned data frame from Schurch et al
+#' @param spot.labels spots for which to create neighborhoods
+#' @param keep_types cell types to keep
+#' @param radius radius of neighborhood
 #'
-#' @return
+#' @return dataframe of neighborhood composition
 #' @export
 #'
 #' @examples
@@ -120,13 +120,13 @@ make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
   nbhds
 }
 
-#' Title
+#' Fit or load model
 #'
-#' @param fit.model 
-#' @param file 
-#' @param ... 
+#' @param fit.model model fitting function
+#' @param file filename
+#' @param ... arguments to pass to fit.model
 #'
-#' @return
+#' @return fitted model, from disk if already exists, otherwise will fit
 #' @export
 #'
 #' @examples

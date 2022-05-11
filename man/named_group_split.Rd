@@ -2,18 +2,18 @@
 % Please edit documentation in R/utils.R
 \name{named_group_split}
 \alias{named_group_split}
-\title{Title}
+\title{Split groups into list with names of each group}
 \usage{
 named_group_split(.tbl, keep = FALSE, ...)
 }
 \arguments{
-\item{.tbl}{}
+\item{.tbl}{tibble to perform group_by}
 
-\item{...}{}
+\item{...}{additional arguments to dplyr::group_by}
 }
 \value{
-
+list of groups with names
 }
 \description{
-Title
+Split groups into list with names of each group
 }

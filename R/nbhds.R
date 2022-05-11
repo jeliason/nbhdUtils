@@ -64,13 +64,13 @@ scale_nbhds = function(nbhds,scale="comp") {
   return(nbhds.obj)
 }
 
-#' Title
+#' Get disc neighborhood around a point
 #'
-#' @param pat 
-#' @param point 
-#' @param radius 
+#' @param pat a marked ppp object from spatstat
+#' @param point (x,y) point around which to get nbhd
+#' @param radius radius of disc
 #'
-#' @return
+#' @return named vector with count of each cell type
 #' @export
 #'
 #' @examples
@@ -85,12 +85,12 @@ get_disc_nbhd = function(pat,point,radius=50) {
   x
 }
 
-#' Title
+#' Get all scanned raster neighborhoods in point pattern
 #'
-#' @param pat 
-#' @param radius 
+#' @param pat marked ppp object from spatstat
+#' @param radius radius of raster neighborhoods
 #'
-#' @return
+#' @return dataframe of raster neighborhood composition
 #' @export
 #'
 #' @examples
@@ -122,21 +122,25 @@ get_raster_nbhds = function(pat,radius=50){
   raster_nbhds
 }
 
-#' Title
+#' Standardize vector to [0,1]
 #'
-#' @param x 
+#' @param x vector to standardize
 #'
-#' @return
+#' @return standardized vector
 #' @export
 #'
 #' @examples
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 
+
 #' Cluster neighborhoods
 #'
 #' @param pat 
+#' @param nbhds.obj 
 #' @param ntype 
 #' @param scale 
+#' @param par 
+#' @param spat.dist 
 #' @param blusparam 
 #'
 #' @return
