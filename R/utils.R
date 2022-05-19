@@ -2,14 +2,14 @@
 #'
 #' @param X X coordinates of cells
 #' @param Y Y coordinates of cells
-#' @param cell_types vector of strings of cell type
+#' @param cell_types factor of cell type
 #' @param keep_types string vector of types to retain in ppp, or "all" if should keep all types
 #'
 #' @return spatstat ppp object 
 #' @export
 create_ppp = function(X,Y,cell_types,keep_types="all") {
   if("all" %in% keep_types) {
-    keep_types = unique(cell_types)
+    keep_types = levels(cell_types)
   } else if(!is.vector(keep_types)) {
     stop("keep_types must be a vector of strings of cell types to keep!")
   }
@@ -22,7 +22,7 @@ create_ppp = function(X,Y,cell_types,keep_types="all") {
   
   filt = df %>%
     dplyr::filter(cell_types %in% keep_types) %>%
-    dplyr::mutate(cell_types = factor(cell_types))
+    dplyr::mutate(cell_types = as.factor(cell_types))
   
   pat = spatstat.geom::ppp(filt$X,filt$Y,c(Xmin,Xmax),c(Ymin,Ymax))
   

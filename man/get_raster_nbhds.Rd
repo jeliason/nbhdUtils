@@ -2,18 +2,18 @@
 % Please edit documentation in R/nbhds.R
 \name{get_raster_nbhds}
 \alias{get_raster_nbhds}
-\title{Title}
+\title{Get all scanned raster neighborhoods in point pattern}
 \usage{
 get_raster_nbhds(pat, radius = 50)
 }
 \arguments{
-\item{pat}{}
+\item{pat}{marked ppp object from spatstat}
 
-\item{radius}{}
+\item{radius}{radius of raster neighborhoods}
 }
 \value{
-
+dataframe of raster neighborhood composition
 }
 \description{
-Title
+Get all scanned raster neighborhoods in point pattern
 }

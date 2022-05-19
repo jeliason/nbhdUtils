@@ -2,20 +2,20 @@
 % Please edit documentation in R/nbhds.R
 \name{get_disc_nbhd}
 \alias{get_disc_nbhd}
-\title{Title}
+\title{Get disc neighborhood around a point}
 \usage{
 get_disc_nbhd(pat, point, radius = 50)
 }
 \arguments{
-\item{pat}{}
+\item{pat}{a marked ppp object from spatstat}
 
-\item{point}{}
+\item{point}{(x,y) point around which to get nbhd}
 
-\item{radius}{}
+\item{radius}{radius of disc}
 }
 \value{
-
+named vector with count of each cell type
 }
 \description{
-Title
+Get disc neighborhood around a point
 }

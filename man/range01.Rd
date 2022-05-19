@@ -2,16 +2,16 @@
 % Please edit documentation in R/nbhds.R
 \name{range01}
 \alias{range01}
-\title{Title}
+\title{Standardize vector to \link{0,1}}
 \usage{
 range01(x)
 }
 \arguments{
-\item{x}{}
+\item{x}{vector to standardize}
 }
 \value{
-
+standardized vector
 }
 \description{
-Title
+Standardize vector to \link{0,1}
 }

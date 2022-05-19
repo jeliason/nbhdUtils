@@ -1,6 +1,6 @@
-#' Extract cell neighborhoods from statgraphs object
+#' Extract cell neighborhoods from spatgraphs object
 #'
-#' @param sg statgraphs object containing the edges for each node
+#' @param sg spatgraphs object containing the edges for each node
 #' @param pat spatstat ppp object that sg was created from
 #'
 #' @return matrix of neighborhood counts of each cell type
@@ -172,7 +172,7 @@ cluster_nbhds = function(pat=NULL,nbhds.obj=NULL,ntype="gabriel",scale="comp", p
     colMeans(nbhds[clusters == i,])
   })
   colnames(centroids) <- paste0("Region ", as.character(1:nclust))
-  list(centroids=centroids,clusters=clusters)
+  list(centroids=centroids,clusters=clusters,nbhds=nbhds)
 }
 
 
@@ -188,7 +188,7 @@ cluster_nbhds = function(pat=NULL,nbhds.obj=NULL,ntype="gabriel",scale="comp", p
 #' @export
 #'
 #' @examples
-nbhdClusterSweep = function(pat,ntypes=list(list(type="SIG",pars=NULL),
+nbhdClusterSweep = function(pats,ntypes=list(list(type="SIG",pars=NULL),
                                             list(type="RNG",pars=NULL),
                                             list(type="gabriel",pars=NULL)),
                             scales=c("comp","global.comp","standardize"),
@@ -198,12 +198,12 @@ nbhdClusterSweep = function(pat,ntypes=list(list(type="SIG",pars=NULL),
                                               list(BLUSPARAM=bluster::SomParam(centers=1L),
                                                    optParams=list(centers=5:10))
                             )) {
-  graphs.list = sapply(ntypes,function(ntype) {
+  graphs.list = lapply(ntypes,function(ntype) {
     type = ntype$type
     pars = ntype$pars
     if(is.vector(pars)) {
-      sapply(pars,function(par) {
-        list(spatgraphs::spatgraph(pat,type=type,par=par))
+      lapply(pars,function(par) {
+        spatgraphs::spatgraph(pat,type=type,par=par)
       })
     } else {
       list(spatgraphs::spatgraph(pat,type=type))

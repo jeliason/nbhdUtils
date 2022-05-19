@@ -17,9 +17,15 @@ cluster_nbhds(
 \arguments{
 \item{pat}{}
 
+\item{nbhds.obj}{}
+
 \item{ntype}{}
 
 \item{scale}{}
+
+\item{par}{}
+
+\item{spat.dist}{}
 
 \item{blusparam}{}
 }

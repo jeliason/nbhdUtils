@@ -2,12 +2,12 @@
 % Please edit documentation in R/nbhds.R
 \name{sg_to_nbhds}
 \alias{sg_to_nbhds}
-\title{Extract cell neighborhoods from statgraphs object}
+\title{Extract cell neighborhoods from spatgraphs object}
 \usage{
 sg_to_nbhds(sg, pat)
 }
 \arguments{
-\item{sg}{statgraphs object containing the edges for each node}
+\item{sg}{spatgraphs object containing the edges for each node}
 
 \item{pat}{spatstat ppp object that sg was created from}
 }
@@ -15,7 +15,7 @@ sg_to_nbhds(sg, pat)
 matrix of neighborhood counts of each cell type
 }
 \description{
-Extract cell neighborhoods from statgraphs object
+Extract cell neighborhoods from spatgraphs object
 }
 \examples{
 X = c(1,1,5)
