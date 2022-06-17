@@ -4,19 +4,28 @@
 #' @param Y Y coordinates of cells
 #' @param cell_types factor of cell type
 #' @param keep_types string vector of types to retain in ppp, or "all" if should keep all types
+#' @param ranges ranges of X and Y
 #'
 #' @return spatstat ppp object 
 #' @export
-create_ppp = function(X,Y,cell_types,keep_types="all") {
+create_ppp = function(X,Y,cell_types,keep_types="all",ranges=NULL) {
+  cell_types = as.factor(cell_types)
   if("all" %in% keep_types) {
     keep_types = levels(cell_types)
   } else if(!is.vector(keep_types)) {
     stop("keep_types must be a vector of strings of cell types to keep!")
   }
-  Xmin = min(X) - 5
-  Xmax = max(X) + 5
-  Ymin = min(Y) - 5
-  Ymax = max(Y) + 5
+  if(is.null(ranges)) {
+    Xmin = min(X) - 5
+    Xmax = max(X) + 5
+    Ymin = min(Y) - 5
+    Ymax = max(Y) + 5
+  } else {
+    Xmin = ranges[[1]][1]
+    Xmax = ranges[[1]][2]
+    Ymin = ranges[[2]][1]
+    Ymax = ranges[[2]][2]
+  }
   
   df = data.frame(X=X,Y=Y,cell_types=cell_types)
   
@@ -120,7 +129,7 @@ make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
   nbhds
 }
 
-#' Fit or load model
+#' Fit or load model along with fitting time
 #'
 #' @param fit.model model fitting function
 #' @param file filename
@@ -130,13 +139,62 @@ make_spot_nbhds <- function(df,spot.labels,keep_types,radius=50) {
 #' @export
 #'
 #' @examples
-run_model <- function(fit.model,file,...) {
-  file = paste0(file,".rds")
+run_time_model <- function(fit.model,file,...) {
+  # file = paste0(file,".rds")
   if(file.exists(file)) {
-    model = readRDS(file)
+    cat("Model already fit, reading from disk.\n")
+    res = readRDS(file)
+    model = res$m
   } else {
+    cat("Model fitting\n")
+    start = Sys.time()
     model = fit.model(...)
-    saveRDS(model,file)
+    end = Sys.time()
+    total_time = end - start
+    cat("Total time fitting: ", total_time,"\n")
+    res = list(m=model,time=total_time)
+    saveRDS(res,file)
   }
   model
+}
+
+#' Estimate kernel density in multitype point pattern
+#'
+#' @param df_raw 
+#' @param spot 
+#' @param eps resolution of kernel density
+#' @param sigma kernel type to use
+#' @param ranges X and Y ranges to use for point pattern
+#'
+#' @return
+#' @export
+#'
+#' @examples
+kernel.density = function(df_raw,spot,eps,sigma=NULL,ranges=NULL) {
+  df = df_raw %>%
+    dplyr::filter(spots == spot)
+  pat = create_ppp(df$X,df$Y,cell_types = df$type, ranges=ranges)
+  
+  split.pat = spatstat.geom::split.ppp(pat)
+  dens.split = lapply(split.pat,function(pp) {
+    tryCatch({
+      spatstat.core::density.ppp(pp,sigma=sigma,diggle=T,eps=eps)
+      # density(pp,sigma=bw.scott,eps=eps,diggle=T)
+    },
+    error=function(e) {
+      spatstat.core::density.ppp(pp,diggle=T,eps=eps)
+    })
+  })
+  # cat(paste0(unlist(lapply(dens.split,function(dens) length(dens$xcol)*length(dens$yrow))),collapse = "\n"),file = paste0("dens_size_",spot,".txt"))
+  sp = dens.split[[2]]
+  Y = rep(sp$yrow,times=sp$dim[2])
+  X = rep(sp$xcol,each=sp$dim[1])
+  step = sp$xstep
+  dens = lapply(dens.split,function(d) {
+    c(d$v)
+  }) %>% 
+    do.call(cbind,.) %>%
+    tibble::as_tibble()
+  
+  list(dens=dens,X=X,Y=Y,step=sp$xstep)
 }

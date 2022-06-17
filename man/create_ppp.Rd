@@ -4,16 +4,18 @@
 \alias{create_ppp}
 \title{Create point pattern with certain cell types}
 \usage{
-create_ppp(X, Y, cell_types, keep_types = "all")
+create_ppp(X, Y, cell_types, keep_types = "all", ranges = NULL)
 }
 \arguments{
 \item{X}{X coordinates of cells}
 
 \item{Y}{Y coordinates of cells}
 
-\item{cell_types}{vector of strings of cell type}
+\item{cell_types}{factor of cell type}
 
 \item{keep_types}{string vector of types to retain in ppp, or "all" if should keep all types}
+
+\item{ranges}{ranges of X and Y}
 }
 \value{
 spatstat ppp object

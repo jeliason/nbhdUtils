@@ -22,10 +22,13 @@ Imports:
     rdist,
     spatgraphs,
     spatstat.geom,
+    spatstat.core,
     stats,
     tibble,
     tidyr,
     viridis,
     ggplot2,
-    GGally
+    GGally,
+    mgwrsar,
+    spdep
 RoxygenNote: 7.1.2

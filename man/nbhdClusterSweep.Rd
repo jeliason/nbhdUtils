@@ -5,7 +5,7 @@
 \title{Sweep cluster and neighborhood parameters and compare using ARI}
 \usage{
 nbhdClusterSweep(
-  pat,
+  pats,
   ntypes = list(list(type = "SIG", pars = NULL), list(type = "RNG", pars = NULL),
     list(type = "gabriel", pars = NULL)),
   scales = c("comp", "global.comp", "standardize"),
@@ -15,13 +15,13 @@ nbhdClusterSweep(
 )
 }
 \arguments{
-\item{pat}{}
-
 \item{ntypes}{}
 
 \item{scales}{}
 
 \item{clust_params}{}
+
+\item{pat}{}
 }
 \value{
 
