@@ -11,7 +11,8 @@
   weight_fun = mgwrsar::bisq_C,
   weight_pars = list(200, 0),
   pcor.fun = pcor,
-  method = "kendall"
+  method = "kendall",
+  loglik = FALSE
 )
 }
 \arguments{

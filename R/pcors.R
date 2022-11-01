@@ -7,7 +7,7 @@
 #' @export
 #'
 #' @examples
-pcor <- function(x, method = c("pearson", "kendall", "spearman"))
+ppcor_pcor <- function(x, method = c("pearson", "kendall", "spearman"))
 {
   # correlation method
   method <- match.arg(method)
@@ -54,7 +54,7 @@ pcor <- function(x, method = c("pearson", "kendall", "spearman"))
 #' @export
 #'
 #' @examples
-spcor <- function(x, method = c("pearson", "kendall", "spearman"))
+ppcor_spcor <- function(x, method = c("pearson", "kendall", "spearman"))
 {
   # correlation method
   method <- match.arg(method)
@@ -91,113 +91,6 @@ spcor <- function(x, method = c("pearson", "kendall", "spearman"))
   diag(spcor) <- 1
   
   list(estimate=spcor)
-}
-
-#' Calculate cell-type (weighted) densities/frequencies around each cell.
-#'
-#' @param df_raw
-#' @param spot 
-#' @param add_markers 
-#' @param nbhd_def 
-#' @param nbhd_pars 
-#' @param density 
-#' @param weighted 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-cell.densities <- function(df_raw,
-                           spot,
-                           add_markers = FALSE,
-                           nbhd_def=spdep::dnearneigh,
-                           nbhd_pars=list(0,50),
-                           density=TRUE,
-                           weighted=FALSE) {
-  df = df_raw %>%
-    dplyr::filter(spots == spot)
-  markers = NULL
-  if(add_markers) {
-    markers = get.markers(df_raw,spot) %>% dplyr::select(-CellID)
-  }
-  d2 <- .Cell.densities(df$X,df$Y,df$type,CellID=df$CellID,
-                        type.levels = levels(df$type),
-                        markers = markers,
-                        nbhd_def = nbhd_def,
-                        nbhd_pars = nbhd_pars,
-                        density=density,
-                        weighted=weighted)
-  d2
-}
-
-#' Calculate cell-type (weighted) densities/frequencies around each cell.
-#'
-#' @param X X coordinates for each cell
-#' @param Y Y coordinates for each cell
-#' @param types cell type for each cell
-#' @param CellID IDs for each cell
-#' @param type.levels possible cell types
-#' @param markers cellular biomarkers to include with densities
-#' @param nbhd_def neighborhood definition, returns list of neighbors for each cell
-#' @param nbhd_pars parameters for neighborhood definition
-#' @param density whether to convert cell type frequencies to densities
-#' @param weighted whether to weight cells in neighborhood by distance from focal cell
-#' @param weighting_scheme see "style" argument for spdep::nb2listwdist
-#'
-#' @return
-#' @export
-#'
-#' @examples
-.Cell.densities <- function(X,Y,
-                            types,
-                            CellID = 1:length(X),
-                            type.levels=levels(types),
-                             markers=NULL,
-                             nbhd_def=spdep::dnearneigh,
-                             nbhd_pars=list(0,50),
-                            density=TRUE,
-                            weighted=FALSE,
-                            weighting_scheme = "raw") {
-  nb <- do.call(nbhd_def,c(list(cbind(X,Y)),nbhd_pars))
-  
-  nb.ar = 1
-  if(density) {
-    nb.ar = nbhd_pars[[2]]^2*pi
-  }
-  if(weighted) {
-    listw=spdep::nb2listwdist(nb,sp::SpatialPoints(cbind(X,Y)),zero.policy=TRUE,alpha=1,style=weighting_scheme,type="idw")
-  }
-  nbhds = sapply(1:length(nb),function(i) {
-    x = c(types[i],types[nb[[i]]])
-    x = factor(x,levels=type.levels)
-    if(length(x) == 0) {
-      return(rep(0,length(type.levels)))
-    }
-    if(weighted) {
-      wt=c(1,listw$weights[[i]])
-      aggregate(wt ~ x, FUN = sum,drop=F)$wt
-    } else {
-      as.vector(table(x))
-    }
-  })
-  nbhds = t(nbhds)
-  colnames(nbhds) = type.levels
-  
-  dens = (nbhds / nb.ar) %>% tibble::as_tibble
-  if(!is.null(markers)) {
-    d2 <- dplyr::bind_cols(CellID=CellID,dens,markers,X=X,Y=Y)
-  } else {
-    d2 <- dplyr::bind_cols(CellID=CellID,dens,X=X,Y=Y)
-  }
-  d2 = d2 %>%
-    dplyr::mutate(dplyr::across(dplyr::everything(), ~tidyr::replace_na(.x, 0)))
-  d2
-  # d2 <- d2 %>%
-  #   tidyr::drop_na() %>%
-  #   filter(!if_any(.fns=~is.infinite(.))) %>%
-  #   select(where(~sum(!is.na(.x)) > 0))
-  # # colnames(d2) <- make.names(names(d2))
-  # d2
 }
 
 # note: this function does NOT include the focal cell of each neighborhood!
@@ -278,7 +171,8 @@ weighted_cells <- function(X,Y,
                    weight_fun=mgwrsar::bisq_C,
                    weight_pars=list(200,0),
                    pcor.fun = pcor,
-                   method = "kendall") {
+                   method = "kendall",
+                   loglik = FALSE) {
   dists = rdist::pdist(cbind(x,y))
   weights = sapply(1:length(x), function(i) {
     wi = do.call(weight_fun,c(list(dists[i,]),weight_pars))
@@ -287,26 +181,37 @@ weighted_cells <- function(X,Y,
   ncolX = ncol(X)
   nrowX = nrow(X)
   m.names <- colnames(X)
-  pcors = array(0,dim = c(ncolX,ncolX,nrowX),dimnames = list(m.names,m.names,NULL))
+  pcors = array(NA,dim = c(ncolX,ncolX,nrowX),dimnames = list(m.names,m.names,NULL))
+  lls=NULL
+  if(loglik) {
+    lls = c()
+  }
   for(i in 1:nrowX) {
     wt = weights[,i]
     X.wt = X[wt > 0,]
     wt = wt[wt > 0]
-    ix = which(lapply(1:ncolX,function(j) {
-      var(X.wt[,j])
-    }) > .Machine$double.eps)
-    X.wt = X.wt[,ix]
+    # ix = which(lapply(1:ncolX,function(j) {
+    #   var(X.wt[,j])
+    # }) > .Machine$double.eps)
+    # X.wt = X.wt[,ix]
     tryCatch({
       # pcor = corpcor::pcor.shrink(X.wt[,ix],w=wt,verbose=F)
       X.wt = sweep(X.wt,1,sqrt(wt),FUN="*")
       pcor.mat = pcor.fun(X.wt,method=method)$estimate
+      pcors[,,i] = pcor.mat
+      if(loglik) {
+        mat = pcor.mat
+        attr(mat,"class") <- NULL
+        wt = weights[,i]
+        X.wt = sweep(X,1,sqrt(wt),FUN="*")
+        lls = c(lls,sum(mvtnorm::dmvnorm(X.wt,mean = apply(X.wt,2,mean),sigma = mat,log=TRUE)))
+      }
     }, error = function(e) {
       print(i)
-      stop(e)
+      # stop(e)
     })
-    pcors[ix,ix,i] = pcor.mat
   }
-  pcors
+  list(pcors=pcors,loglik=lls)
 }
 
 #' Title

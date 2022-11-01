@@ -4,7 +4,7 @@
 \alias{named_group_split}
 \title{Split groups into list with names of each group}
 \usage{
-named_group_split(.tbl, keep = FALSE, ...)
+named_group_split(.tbl, ..., keep = FALSE)
 }
 \arguments{
 \item{.tbl}{tibble to perform group_by}

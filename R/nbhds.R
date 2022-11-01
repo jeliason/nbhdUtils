@@ -122,16 +122,6 @@ get_raster_nbhds = function(pat,radius=50){
   raster_nbhds
 }
 
-#' Standardize vector to [0,1]
-#'
-#' @param x vector to standardize
-#'
-#' @return standardized vector
-#' @export
-#'
-#' @examples
-range01 <- function(x){(x-min(x))/(max(x)-min(x))}
-
 
 #' Cluster neighborhoods
 #'

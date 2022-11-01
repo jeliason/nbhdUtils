@@ -30,5 +30,7 @@ Imports:
     ggplot2,
     GGally,
     mgwrsar,
-    spdep
+    spdep,
+    mvtnorm,
+    corrr
 RoxygenNote: 7.1.2

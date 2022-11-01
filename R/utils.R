@@ -49,50 +49,13 @@ create_ppp = function(X,Y,cell_types,keep_types="all",ranges=NULL) {
 #' @export
 #'
 #' @examples
-named_group_split <- function(.tbl, keep = FALSE, ...) {
+named_group_split <- function(.tbl, ...,keep = FALSE) {
   grouped <- dplyr::group_by(.tbl, ...)
   names <- rlang::inject(paste(!!!dplyr::group_keys(grouped), sep = " / "))
   
   grouped %>% 
     dplyr::group_split(., .keep = keep) %>% 
     rlang::set_names(names)
-}
-
-#' Check a BRMS model using the DHARMa simulated residuals
-#'
-#' @param model brms model
-#' @param integer integer response? (TRUE/FALSE)
-#' @param plot make plot?
-#' @param ... further arguments for DHARMa::plotResiduals 
-#'
-#' @return a DHARMa object
-#' @export
-#'
-#' @examples
-check_brms <- function(model,             
-                       integer = TRUE,   
-                       plot = TRUE,       
-                       ...                
-) {
-  
-  mdata <- brms::standata(model)
-  if (!"Y" %in% names(mdata))
-    stop("Cannot extract the required information from this brms model")
-  
-  dharma.obj <- DHARMa::createDHARMa(
-    simulatedResponse = t(brms::posterior_predict(model, ndraws = 1000, re.form = NULL)),
-    observedResponse = mdata$Y, 
-    fittedPredictedResponse = apply(
-      t(brms::posterior_epred(model, ndraws = 1000, re.form = NULL)),
-      1,
-      mean),
-    integerResponse = integer)
-  
-  if (isTRUE(plot)) {
-    plot(dharma.obj, ...)
-  }
-  
-  invisible(dharma.obj)
 }
 
 
@@ -158,43 +121,45 @@ run_time_model <- function(fit.model,file,...) {
   model
 }
 
-#' Estimate kernel density in multitype point pattern
+#' Saves object as an RDS file to RESULTS_PATH subfolder
 #'
-#' @param df_raw 
-#' @param spot 
-#' @param eps resolution of kernel density
-#' @param sigma kernel type to use
-#' @param ranges X and Y ranges to use for point pattern
+#' @param obj R object
+#' @param filename 
 #'
 #' @return
 #' @export
 #'
 #' @examples
-kernel.density = function(df_raw,spot,eps,sigma=NULL,ranges=NULL) {
-  df = df_raw %>%
-    dplyr::filter(spots == spot)
-  pat = create_ppp(df$X,df$Y,cell_types = df$type, ranges=ranges)
-  
-  split.pat = spatstat.geom::split.ppp(pat)
-  dens.split = lapply(split.pat,function(pp) {
-    tryCatch({
-      spatstat.core::density.ppp(pp,sigma=sigma,diggle=T,eps=eps)
-      # density(pp,sigma=bw.scott,eps=eps,diggle=T)
-    },
-    error=function(e) {
-      spatstat.core::density.ppp(pp,diggle=T,eps=eps)
-    })
-  })
-  # cat(paste0(unlist(lapply(dens.split,function(dens) length(dens$xcol)*length(dens$yrow))),collapse = "\n"),file = paste0("dens_size_",spot,".txt"))
-  sp = dens.split[[2]]
-  Y = rep(sp$yrow,times=sp$dim[2])
-  X = rep(sp$xcol,each=sp$dim[1])
-  step = sp$xstep
-  dens = lapply(dens.split,function(d) {
-    c(d$v)
-  }) %>% 
-    do.call(cbind,.) %>%
-    tibble::as_tibble()
-  
-  list(dens=dens,X=X,Y=Y,step=sp$xstep)
+saveObj <- function(obj,filename,overwrite=TRUE) {
+  full = paste0(RESULTS_PATH,filename)
+  if(!file.exists(full) | overwrite) {
+    saveRDS(obj,full)
+  }
 }
+
+#' Reads object from RESULTS_PATH or other subfolder
+#'
+#' @param filename 
+#' @param root if not NULL, will read from RESULTS_PATH
+#'
+#' @return R object
+#' @export
+#'
+#' @examples
+readObj <- function(filename,root=NULL) {
+  if(is.null(root)) {
+    obj <- readRDS(paste0(RESULTS_PATH,filename))
+  } else {
+    obj <- readRDS(paste0(root,filename))
+  }
+}
+
+#' Standardize vector to [0,1]
+#'
+#' @param x vector to standardize
+#'
+#' @return standardized vector
+#' @export
+#'
+#' @examples
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
